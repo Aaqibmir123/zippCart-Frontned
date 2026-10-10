@@ -1,0 +1,47 @@
+import { StyleSheet } from 'react-native';
+import { authColors } from '../../features/auth/auth.styles';
+
+export const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: authColors.background },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20,
+    paddingVertical: 12, width: '100%', maxWidth: 720, alignSelf: 'center',
+  },
+  back: {
+    width: 44, height: 44, borderRadius: 16, backgroundColor: '#F1F8EF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pressed: { opacity: 0.65 },
+  pageTitle: { flex: 1, fontSize: 21, lineHeight: 28, fontWeight: '700', color: authColors.ink, letterSpacing: -0.5 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, alignSelf: 'center', width: '100%', maxWidth: 720 },
+  intro: { padding: 22, borderRadius: 24, borderWidth: 1, borderColor: '#E3EFE1', marginBottom: 20 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 24 },
+  wordmark: { fontSize: 22 },
+  eyebrow: { color: authColors.green, fontSize: 10, lineHeight: 16, fontWeight: '700', letterSpacing: 1.4 },
+  lead: { color: authColors.ink, fontSize: 25, lineHeight: 34, fontWeight: '700', letterSpacing: -0.6, marginTop: 9 },
+  documentMeta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20 },
+  accent: { height: 3, width: 24, borderRadius: 2, backgroundColor: authColors.green },
+  metaText: { fontSize: 12, lineHeight: 18, color: authColors.muted },
+  document: {
+    backgroundColor: '#FFFFFF', borderRadius: 24, paddingHorizontal: 20,
+    borderWidth: 1, borderColor: '#E3EBE3', boxShadow: '0 4px 16px rgba(8, 39, 37, 0.04)',
+  },
+  section: { paddingVertical: 22 },
+  divider: { borderTopWidth: 1, borderTopColor: '#EDF2EC' },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  numberBadge: { minWidth: 34, minHeight: 34, padding: 6, borderRadius: 12, backgroundColor: '#EDF7EC', alignItems: 'center', justifyContent: 'center' },
+  number: { fontSize: 12, fontWeight: '700', color: authColors.green },
+  title: { flex: 1, fontSize: 16, lineHeight: 23, fontWeight: '700', color: authColors.ink },
+  body: { fontSize: 14, lineHeight: 24, color: authColors.muted },
+  contact: { marginTop: 20, padding: 20, borderRadius: 24, backgroundColor: '#F1F8EF', borderWidth: 1, borderColor: '#E3EFE1' },
+  contactHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  contactIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  contactTitle: { flex: 1, color: authColors.ink, fontSize: 18, fontWeight: '700' },
+  emailLink: { minHeight: 48, justifyContent: 'center', marginVertical: 4 },
+  email: { color: authColors.green, fontSize: 14, lineHeight: 22, fontWeight: '600', textDecorationLine: 'underline' },
+  location: { color: authColors.muted, fontSize: 12, lineHeight: 20 },
+  error: { color: '#B33241', fontSize: 12, lineHeight: 20, marginBottom: 8 },
+  footer: { alignItems: 'center', paddingTop: 28, paddingBottom: 8, gap: 6 },
+  footerBrand: { fontSize: 20 },
+  tagline: { fontSize: 12, color: authColors.muted },
+});

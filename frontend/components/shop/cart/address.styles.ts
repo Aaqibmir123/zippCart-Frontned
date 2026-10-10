@@ -1,0 +1,19 @@
+import { orderTheme as t } from '../../../features/orders/order-theme';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../theme';
+
+export const addressStyles = StyleSheet.create({
+  formGroup: { gap: 14 }, locationCard: { backgroundColor: '#F0E7FF', borderRadius: 16, padding: 14 },
+  locationAction: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  flex: { flex: 1 }, card: { backgroundColor: '#F5EEFF', borderRadius: 18, borderColor: '#E5D8F5', borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 80 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }, pin: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#EBDDFA', alignItems: 'center', justifyContent: 'center' }, pinText: { fontSize: 27, color: '#8033D9' },
+  eyebrow: { fontSize: 9, letterSpacing: 1.4, fontWeight: '800', color: '#9776B3', marginBottom: 4 }, title: { fontSize: 16, fontWeight: '800', color: t.ink },
+  smallButton: { minHeight: 44, paddingHorizontal: 8, justifyContent: 'center', alignItems: 'center' }, link: { color: t.primary, fontSize: 13, fontWeight: '700' }, body: { fontSize: 13, lineHeight: 20, color: t.muted, marginTop: 8 },
+  compactTitle: { color: t.ink, fontSize: 14, fontWeight: '700' }, compactCopy: { color: '#877394', fontSize: 11, marginTop: 4 }, chevron: { color: '#8033D9', fontSize: 28 }, tag: { alignSelf: 'flex-start', fontSize: 10, color: t.primary, backgroundColor: '#EEEBFC', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, fontWeight: '700' }, phone: { fontSize: 12, color: t.ink, marginTop: 8 },
+  billing: { borderTopWidth: 1, borderTopColor: '#EEEAF5', marginTop: 16, paddingTop: 10 }, checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44 }, checkbox: { width: 21, height: 21, borderWidth: 1, borderColor: '#ABA3C5', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }, checked: { backgroundColor: t.primary, borderColor: t.primary }, checkText: { color: 'white', fontWeight: '800' }, billingText: { fontSize: 12, color: t.ink, flex: 1 }, billingChoice: { paddingVertical: 8 },
+  modal: { flex: 1, backgroundColor: '#F6F4FB' }, modalHeader: { padding: 20, backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', gap: 8 }, modalContent: { padding: 20, paddingBottom: 32, gap: 14 }, country: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: '#8B80AF' },
+  field: { gap: 7 }, fieldLabel: { fontSize: 12, fontWeight: '700', color: t.ink }, input: { backgroundColor: 'white', borderWidth: 1, borderColor: '#DDD9EB', borderRadius: 13, paddingHorizontal: 14, paddingVertical: 14, fontSize: 14, color: t.ink }, inputError: { borderColor: '#D94160' }, error: { color: '#B82E4C', fontSize: 12, lineHeight: 18 }, errorBanner: { backgroundColor: '#FFE9EE', borderRadius: 12, padding: 12, color: '#B82E4C', fontSize: 13 },
+  chips: { flexDirection: 'row', gap: 10 }, chip: { paddingHorizontal: 20, minHeight: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#DDD9EB', borderRadius: 12, backgroundColor: 'white' }, selectedChip: { borderColor: t.primary, backgroundColor: '#F0EDFF' },
+  savedCard: { padding: 16, borderWidth: 1, borderColor: '#DDD9EB', backgroundColor: 'white', borderRadius: 18 }, actions: { flexDirection: 'row', gap: 16, marginTop: 8 }, addButton: { borderStyle: 'dashed', borderWidth: 1, borderColor: '#B7A9EB', padding: 18, borderRadius: 16, alignItems: 'center' },
+  formFooter: { padding: 16, borderTopWidth: 1, borderTopColor: '#E3DFF4', backgroundColor: 'white' }, primaryButton: { minHeight: 52, borderRadius: 16, backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center' }, primaryText: { color: 'white', fontSize: 14, fontWeight: '800' },
+});

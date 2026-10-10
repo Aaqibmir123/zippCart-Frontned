@@ -1,0 +1,43 @@
+import { StyleSheet } from 'react-native';
+
+import { orderTheme as t } from './order-theme';
+
+export const purple = t.primary;
+export const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: t.background },
+  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 18, backgroundColor: '#FFFFFF' },
+  title: { color: '#241440', fontSize: 29, fontWeight: '800', letterSpacing: -0.7 },
+  tabs: { flexDirection: 'row', backgroundColor: '#F4EFF8', borderRadius: 18, padding: 4, marginTop: 18, gap: 4 },
+  tab: { flex: 1, minWidth: 0, padding: 12, minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 14 },
+  selected: { backgroundColor: '#7840AD' },
+  tabText: { color: '#81718D', textAlign: 'center', fontSize: 13, fontWeight: '700' },
+  white: { color: '#fff' },
+  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 13, flexGrow: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12 },
+  retry: { alignItems: 'center', borderColor: t.outline, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 42, minWidth: 90, paddingHorizontal: 16 },
+  empty: { color: t.ink, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  card: { backgroundColor: t.surface, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: t.border, gap: 12 },
+  top: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  orderHeading: { flex: 1, minWidth: 0 },
+  orderId: { color: '#36214F', fontSize: 11, fontWeight: '800' },
+  date: { color: '#9688AB', fontSize: 10, marginTop: 3 },
+  pill: { maxWidth: '48%', borderRadius: 9, backgroundColor: '#EFE6FF', paddingHorizontal: 9, paddingVertical: 6 },
+  pillText: { color: purple, fontSize: 10, fontWeight: '700' },
+  green: { backgroundColor: '#E3F7E9' },
+  greenText: { color: '#378451' },
+  product: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  photo: { width: 72, height: 78, borderRadius: 11, backgroundColor: '#F0E9FA', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  image: { width: '100%', height: '100%' },
+  productCopy: { flex: 1, minWidth: 0, gap: 4 },
+  name: { color: '#302043', fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  options: { color: '#9788AC', fontSize: 10 },
+  price: { color: '#2F194B', fontSize: 17, fontWeight: '800' },
+  chevron: { color: '#7C59AF', fontSize: 24 },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, backgroundColor: '#F0E8FF', padding: 10 },
+  noteText: { flex: 1, fontSize: 11, color: '#8057BC', lineHeight: 16 },
+  actions: { flexDirection: 'row', gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F4EFF8' },
+  button: { flex: 1, minWidth: 0, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: t.outline, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 8 },
+  primary: { backgroundColor: purple, borderColor: purple },
+  buttonText: { color: purple, fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  pressed: { opacity: 0.65 },
+});

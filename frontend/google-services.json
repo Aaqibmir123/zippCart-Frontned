@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "580364931132",
+    "project_id": "zippcart-7faa9",
+    "storage_bucket": "zippcart-7faa9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:580364931132:android:d1ce3984758585c1d23339",
+        "android_client_info": {
+          "package_name": "com.aaqibmir.zippcart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj4DBNEEJrXPlcq8FQ6yv1qMAqzAZNr9Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

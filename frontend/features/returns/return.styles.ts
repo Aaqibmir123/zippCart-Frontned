@@ -1,0 +1,31 @@
+import { StyleSheet } from 'react-native';
+import { orderTheme as t } from '../orders/order-theme';
+
+export const rs = StyleSheet.create({
+  steps: { flexDirection: 'row', gap: 6 },
+  stepTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: t.outline },
+  stepActive: { backgroundColor: t.primary },
+  page: { flex: 1, backgroundColor: t.background }, flex: { flex: 1 },
+  content: { padding: 14, gap: 14, paddingBottom: 35 },
+  header: { padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: t.tint },
+  title: { fontSize: 21, fontWeight: '800', color: t.ink },
+  heading: { fontSize: 16, fontWeight: '700', color: t.ink },
+  text: { fontSize: 13, lineHeight: 20, color: t.ink },
+  muted: { fontSize: 12, lineHeight: 19, color: t.muted },
+  label: { fontSize: 12, fontWeight: '700', color: t.muted, marginBottom: 6 },
+  card: { padding: 16, borderRadius: 17, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, gap: 12 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  input: { borderWidth: 1, borderColor: t.border, borderRadius: 11, backgroundColor: t.surface, color: t.ink, minHeight: 46, padding: 12, fontSize: 13 },
+  multiline: { minHeight: 90, textAlignVertical: 'top' },
+  button: { backgroundColor: t.primary, borderRadius: 12, minHeight: 46, padding: 12, justifyContent: 'center', alignItems: 'center' },
+  buttonText: { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  secondary: { borderWidth: 1, borderColor: t.outline, borderRadius: 11, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
+  link: { color: t.primary, fontWeight: '700', fontSize: 12 },
+  selected: { backgroundColor: t.tint, borderColor: t.primary },
+  disabled: { opacity: 0.4 }, error: { color: '#A83E5A', fontSize: 12, lineHeight: 19 },
+  success: { color: '#33744E', fontSize: 12 },
+  footer: { backgroundColor: t.surface, padding: 16, borderTopWidth: 1, borderTopColor: t.border, gap: 10 },
+  photo: { height: 90, width: 90, borderRadius: 10, backgroundColor: '#EFEAF4' },
+  badge: { alignSelf: 'flex-start', color: t.primary, fontSize: 12, fontWeight: '700', backgroundColor: t.tint, borderRadius: 8, padding: 8 },
+});
