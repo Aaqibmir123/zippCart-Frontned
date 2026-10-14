@@ -30,16 +30,11 @@ export function AdminDrawer({
   onNavigate: (tab: AdminTab) => void;
   onShop: () => void;
 }) {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const logout = useLogout();
   async function signOut() {
-    try {
-      await logout.mutateAsync();
-      onClose();
-      setUser(null);
-    } catch {
-      /* Keep the session and show a retryable error below. */
-    }
+    onClose();
+    await logout.mutateAsync().catch(() => undefined);
   }
   return (
     <Modal

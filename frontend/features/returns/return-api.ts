@@ -14,13 +14,14 @@ export const returnApi = {
   action: (record: ReturnCase, body: CustomerAction | AdminAction, admin: boolean) => apiRequest<{ case: ReturnCase }>(
     `${admin ? '/returns/admin/orders' : '/returns/orders'}/${record.orderId}/${record.id}/actions`, { body }),
   upload: (orderId: string, data: string) => apiRequest<{ id: string }>(`${path(orderId)}/photos`, { body: { data }, timeoutMs: 30000 }),
+  uploadBinary: (orderId: string, imageBody: Blob) => apiRequest<{ id: string }>(`${path(orderId)}/photos/binary`, { imageBody, timeoutMs: 35000 }),
   photo: (orderId: string, id: string) => apiRequest<{ data: string }>(`${path(orderId)}/photos/${id}`, { method: 'GET' }),
 };
 export function useReturnCases(orderId: string, admin = false, enabled = true) {
   const { user } = useAuth();
   const active = useScreenActive(enabled);
   return useQuery({ queryKey: ['return-cases', user?.id, orderId, admin], queryFn: () => returnApi.list(orderId, admin),
-    enabled: active && !!user && (!admin || !!user.roles?.includes('admin')), refetchInterval: active ? 15000 : false, retry: 1 });
+    enabled: active && !!user && (!admin || !!user.roles?.includes('admin')), refetchInterval: active ? 15000 : false });
 }
 export function useReturnMutation(orderId: string) {
   const client = useQueryClient();
@@ -58,7 +59,7 @@ export function useReturnInbox(status = 'all', enabled = true) {
     queryFn: ({ pageParam }) => apiRequest<{ cases: ReturnSummary[]; nextPage: number | null; total: number }>(
       `/returns/mine?status=${status}&page=${pageParam}`, { method: 'GET' }),
     enabled: active && !!user, getNextPageParam: (last) => last.nextPage ?? undefined,
-    refetchInterval: active ? 15000 : false, retry: 1 });
+    refetchInterval: active ? 15000 : false });
 }
 export function useAdminReturnCases(status: string, enabled = true) {
   const { user } = useAuth();
@@ -67,5 +68,5 @@ export function useAdminReturnCases(status: string, enabled = true) {
     queryFn: ({ pageParam }) => apiRequest<{ cases: ReturnSummary[]; nextPage: number | null; total: number }>(
       `/returns/admin?status=${status}&page=${pageParam}`, { method: 'GET' }),
     enabled: active && !!user?.roles?.includes('admin'),
-    getNextPageParam: (last) => last.nextPage ?? undefined, refetchInterval: active ? 30000 : false, retry: 1 });
+    getNextPageParam: (last) => last.nextPage ?? undefined, refetchInterval: active ? 30000 : false });
 }

@@ -9,10 +9,8 @@ import { isApiError } from '../../../services/api/api-error';
 import { useAddresses, useRemoveAddress, useSaveAddress } from '../../../services/addresses/address-queries';
 import { colors } from '../../../theme';
 import { addressStyles as s } from './address.styles';
-import { useIsFocused } from '@react-navigation/native';
-import { useDeliveryLocation } from '../../../features/location/useDeliveryLocation';
 import { DeliveryAddressForm } from './DeliveryAddressForm';
-import { blankAddress as blank, addressFields, additionalAddressFields, addressFieldErrors, fillDetectedAddress, validateAddress } from './address-form';
+import { blankAddress as blank, addressFields, additionalAddressFields, addressFieldErrors, validateAddress } from './address-form';
 import { HomeIcon } from '../../../features/home/HomeIcon';
 import { useAppTheme } from '../../../theme/ThemeProvider';
 
@@ -23,8 +21,6 @@ type Props = { open: boolean; onOpenChange: (open: boolean) => void; onReadyChan
 export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props) {
   const theme = useAppTheme();
   const { user } = useAuth();
-  const focused = useIsFocused();
-  const replaceLocation = useRef(false);
   const saving = useRef(false);
   const scroll = useRef<ScrollView>(null);
   const query = useAddresses();
@@ -42,16 +38,6 @@ export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props)
   const selected = addresses.find((address) => address.id === selectedId) ?? addresses[0];
   const billing = sameBilling ? selected : addresses.find((address) => address.id === billingId);
   const pending = save.isPending || remove.isPending;
-  const location = useDeliveryLocation(user?.id, query.isSuccess && (addresses.length === 0 || (open && !!form && !form.id)), focused);
-  const detected = location.state.status === 'ready' ? location.state.address : null;
-  useEffect(() => {
-    if (location.state.status !== 'ready') return;
-    const address = location.state.address;
-    const replace = replaceLocation.current;
-    replaceLocation.current = false;
-    setForm((current) => current && (!current.id || replace) ? fillDetectedAddress(current, address, replace) : current);
-  }, [location.state]);
-  function locate() { replaceLocation.current = true; void location.locate(); }
   function changeField(key: keyof AddressInput, value: string) {
     setForm((current) => current ? { ...current, [key]: value } : null);
     setErrors((current) => { const next = { ...current }; delete next[key]; return next; });
@@ -69,13 +55,12 @@ export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props)
     if (!query.isPending && !query.isError && !addresses.length) startForm();
   }
   function startForm(address?: Address) {
-    replaceLocation.current = false;
     setForm(address ? { ...blank, ...address, district: address.district ?? '' }
-      : { ...blank, ...(detected ?? {}), name: user?.fullName ?? '', phone: (user?.phone ?? '').slice(-10) });
+      : { ...blank, name: user?.fullName ?? '', phone: (user?.phone ?? '').slice(-10) });
     setErrors({}); setMessage('');
   }
   async function submit() {
-    if (!form || saving.current || pending || location.state.status === 'loading') return;
+    if (!form || saving.current || pending) return;
     const normalized = { ...form };
     for (const { key } of [...addressFields, ...additionalAddressFields]) normalized[key] = normalized[key].trim();
     const nextErrors = validateAddress(normalized);
@@ -103,12 +88,12 @@ export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props)
 
   return <>
     <Pressable accessibilityRole="button" accessibilityLabel={query.isError ? 'Retry loading addresses' : 'Choose delivery address'} onPress={() => query.isError ? void query.refetch() : openPicker('shipping')} style={[s.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-      <View style={[s.pin, { backgroundColor: theme.colors.raised }]}><HomeIcon name="location" color={theme.colors.primary} size={23} /></View>
+      <View style={[s.pin, { backgroundColor: theme.colors.raised }]}><HomeIcon name="home" color={theme.colors.primary} size={23} /></View>
       <View style={s.flex}>
         <Text style={[s.eyebrow, { color: theme.colors.primary }]}>DELIVER TO</Text>
         {query.isPending ? <Text style={[s.compactCopy, { color: theme.colors.muted }]}>Loading saved addresses…</Text> : query.isError ? <Text style={s.error}>Could not load address - Retry</Text> : <>
-          <Text numberOfLines={1} style={[s.compactTitle, { color: theme.colors.text }]}>{selected ? `${selected.label} - ${selected.name}` : location.state.status === 'loading' ? 'Finding your area...' : detected ? 'Confirm delivery address' : 'Add delivery address'}</Text>
-          {selected ? <Text numberOfLines={1} style={[s.compactCopy, { color: theme.colors.muted }]}>{[selected.locality, selected.district, selected.city, selected.pincode].filter(Boolean).join(', ')}</Text> : detected ? <Text numberOfLines={1} style={[s.compactCopy, { color: theme.colors.muted }]}>{[detected.locality, detected.district, detected.city, detected.pincode].filter(Boolean).join(', ')}</Text> : <Text style={[s.compactCopy, { color: theme.colors.muted }]}>Use current location or enter manually</Text>}
+          <Text numberOfLines={1} style={[s.compactTitle, { color: theme.colors.text }]}>{selected ? `${selected.label} - ${selected.name}` : 'Add delivery address'}</Text>
+          {selected ? <Text numberOfLines={1} style={[s.compactCopy, { color: theme.colors.muted }]}>{[selected.locality, selected.district, selected.city, selected.pincode].filter(Boolean).join(', ')}</Text> : <Text style={[s.compactCopy, { color: theme.colors.muted }]}>Enter your area, house or landmark and PIN code</Text>}
         </>}
       </View>
       <Text style={[s.chevron, { color: theme.colors.primary }]}>{"\u203a"}</Text>
@@ -125,8 +110,8 @@ export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props)
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: sameBilling }} onPress={() => setSameBilling(!sameBilling)} style={s.checkboxRow}><View style={[s.checkbox, sameBilling && s.checked]}><Text style={s.checkText}>{sameBilling ? '✓' : ''}</Text></View><Text style={[s.billingText, { color: theme.colors.text }]}>Billing address same as delivery</Text></Pressable>
         {!sameBilling && <Pressable onPress={() => openPicker('billing')} style={s.billingChoice}><Text style={[s.link, { color: theme.colors.primary }]}>{billing ? 'Change billing address' : '+ Add / select billing address'}</Text>{billing && <Text style={[s.body, { color: theme.colors.muted }]}>{billing.name} · {addressText(billing)}</Text>}</Pressable>}
       </View>)}
-            {form ? <DeliveryAddressForm key={form.id ?? 'new'} form={form} errors={errors} pending={pending} location={location.state}
-              onLocate={locate} onChange={changeField} /> : <>
+            {form ? <DeliveryAddressForm key={form.id ?? 'new'} form={form} errors={errors} pending={pending}
+              onChange={changeField} /> : <>
               {query.isPending && <AppLoader color={colors.primary} />}
               {query.isError && <Pressable onPress={() => void query.refetch()}><Text style={s.error}>Unable to load addresses. Tap to retry.</Text></Pressable>}
               {addresses.map((address) => { const active = address.id === (target === 'shipping' ? selected?.id : billing?.id); return <View key={address.id} style={[s.savedCard, { backgroundColor: theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }]}><Pressable accessibilityRole="radio" accessibilityState={{ checked: active }} disabled={pending} onPress={() => { if (target === 'shipping') setSelectedId(address.id); else setBillingId(address.id); onOpenChange(false); }}><View style={s.heading}><Text style={[s.title, { color: theme.colors.text }]}>{address.name}</Text><Text style={s.tag}>{address.label}{active ? ' · Selected' : ''}</Text></View><Text style={[s.body, { color: theme.colors.muted }]}>{addressText(address)}</Text><Text style={[s.phone, { color: theme.colors.text }]}>+91 {address.phone}</Text></Pressable><View style={s.actions}><Pressable disabled={pending} onPress={() => startForm(address)} style={s.smallButton}><Text style={[s.link, { color: theme.colors.primary }]}>Edit</Text></Pressable><Pressable disabled={pending} onPress={() => void deleteAddress(address.id)} style={s.smallButton}><Text style={s.error}>Remove</Text></Pressable></View></View>; })}
@@ -136,7 +121,7 @@ export function CartAddressSection({ open, onOpenChange, onReadyChange }: Props)
           </ScrollView>
           {form && <View style={[s.formFooter, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
             {!!formError && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={s.errorBanner}>{formError}</Text>}
-            <Pressable disabled={pending || location.state.status === 'loading'} onPress={() => void submit()} style={[s.primaryButton, pending && { opacity: 0.6 }]}>{pending ? <AppLoader color="white" /> : <Text style={s.primaryText}>Save & use this address</Text>}</Pressable><Pressable disabled={pending} onPress={() => { setForm(null); setMessage(''); }} style={s.smallButton}><Text style={[s.link, { color: theme.colors.primary }]}>Back to saved addresses</Text></Pressable></View>}
+            <Pressable disabled={pending} onPress={() => void submit()} style={[s.primaryButton, pending && { opacity: 0.6 }]}>{pending ? <AppLoader color="white" /> : <Text style={s.primaryText}>Save & use this address</Text>}</Pressable><Pressable disabled={pending} onPress={() => { setForm(null); setMessage(''); }} style={s.smallButton}><Text style={[s.link, { color: theme.colors.primary }]}>Back to saved addresses</Text></Pressable></View>}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>

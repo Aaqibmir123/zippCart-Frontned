@@ -75,7 +75,7 @@ test('card heart exposes per-card busy feedback while wishlist request is pendin
     '../../theme/ThemeProvider': { useAppTheme: () => ({ isDark: false, colors: { text: '#000', muted: '#777', surface: '#fff', border: '#eee', raised: '#f5f5f5', primary: '#7139F5' } }) },
   });
   const product = { id: 'p', name: 'Product', category: 'Fashion', brand: '', storeName: '', price: 1, mrp: 1, stock: 2, coverImage: null };
-  const tree = HomeProductCard({
+  const tree = HomeProductCard.type({
     product, width: 180, favorite: false, favoritePending: true,
     onOpen() {}, onFavorite() {}, onAdd() {},
   });

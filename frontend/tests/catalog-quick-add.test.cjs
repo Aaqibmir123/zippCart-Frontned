@@ -28,6 +28,7 @@ function mount(product) {
   });
   const useHomeCatalog = loadHomeCatalog({
     react: {
+      useCallback: (callback) => callback,
       useMemo: (factory) => factory(),
       useRef: (current) => ({ current }),
       useState: (value) => [value, () => {}],

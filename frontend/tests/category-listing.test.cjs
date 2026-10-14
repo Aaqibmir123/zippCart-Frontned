@@ -39,6 +39,7 @@ function setup() {
     react: {
       useState: () => [localCategory, (value) => { localCategory = value; }],
       useMemo: (fn) => fn(), useRef: (value) => ({ current: value }),
+      useCallback: (callback) => callback,
     },
     '@tanstack/react-query': {
       useMutation: () => ({ isPending: false }),
@@ -54,6 +55,7 @@ function setup() {
     '../../services/api/api-error': { isApiError: () => false },
   });
   const { ProductListingScreen } = load('features/catalog/ProductListingScreen.tsx', {
+    react: { useCallback: (callback) => callback },
     '@react-navigation/native': { useRoute: () => route, useNavigation: () => ({ navigate() {}, goBack() {} }) },
     'react-native': {
       ActivityIndicator: 'Spinner', FlatList: 'List', Pressable: 'Button', Text: 'Text', View: 'View',
@@ -62,6 +64,7 @@ function setup() {
     'react-native-safe-area-context': { SafeAreaView: 'SafeArea' },
     '../../components/TopFeedbackToast': { TopFeedbackToast: 'Toast' },
     '../home/HomeProductCard': { HomeProductCard: 'Card' },
+    '../home/WishlistStatus': { WishlistStatus: 'WishlistStatus' },
     '../home/useHomeCatalog': catalogHook,
     '../home/home.styles': { h: {}, palette: {} },
     '../../theme/ThemeProvider': { useAppTheme: () => ({ isDark: false, colors: { background: '#fff' } }) },

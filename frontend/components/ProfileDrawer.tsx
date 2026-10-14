@@ -1,11 +1,12 @@
 import { AppLoader } from './AppLoader';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DeleteAccountDialog } from './account/DeleteAccountDialog';
 import { useAuth } from '../context/AuthContext';
 import { useLogout } from '../services/auth/auth-mutations';
-import { clearPendingLogout, clearSessionMayExist, setPendingLogout } from '../services/auth/session-storage';
+import { clearSessionMayExist, setPendingLogout } from '../services/auth/session-storage';
 import { AccountDrawerHeader } from './account/AccountDrawerHeader';
 import { AccountMenuRow, AccountPage, MenuLabel } from './account/AccountMenuRow';
 import { AccountPanel } from './account/AccountPanel';
@@ -19,6 +20,16 @@ import { useAppTheme } from '../theme/ThemeProvider';
 type Props = { onClose: () => void; onOpenFavorites: () => void; visible: boolean };
 const menu: MenuLabel[] = ['Profile', 'Favorites', 'Coupons', 'Referral', 'Your store'];
 export function ProfileDrawer({ onClose, onOpenFavorites, visible }: Props) {
+  const focused = useIsFocused();
+  const { user, session } = useAuth();
+  // Bottom tabs stay mounted: hidden drawer pages must not retain modals or queries.
+  // Use route focus rather than app foreground state so permission prompts preserve drafts.
+  if (!visible || !focused) return null;
+  return <ProfileDrawerContent key={`${user?.id}:${session?.generation}`} visible
+    onClose={onClose} onOpenFavorites={onOpenFavorites} />;
+}
+
+export function ProfileDrawerContent({ onClose, onOpenFavorites, visible }: Props) {
   const { setUser, user } = useAuth();
   const theme = useAppTheme();
   const logout = useLogout();
@@ -27,34 +38,14 @@ export function ProfileDrawer({ onClose, onOpenFavorites, visible }: Props) {
   const [page, setPage] = useState<AccountPage | null>(null);
   const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const supportBack = useRef<(() => void) | null>(null);
+  const storeBack = useRef<(() => void) | null>(null);
+  const requestsBack = useRef<(() => void) | null>(null);
+  const registerStoreBack = useCallback((handler: (() => void) | null) => { storeBack.current = handler; }, []);
   useEffect(() => { setPage(null); }, [user?.id]);
   useEffect(() => { if (!visible) setPage(null); }, [visible]);
   async function handleLogout() {
-    let serverConfirmed = true;
-    let localSignoutSaved = true;
-    try { await setPendingLogout(); }
-    catch {
-      localSignoutSaved = false;
-      console.warn('[auth] logout_marker_write_error');
-    }
-    try {
-      await logout.mutateAsync();
-      try { await clearPendingLogout(); }
-      catch { console.warn('[auth] logout_marker_clear_error'); }
-    }
-    catch {
-      serverConfirmed = false;
-      console.warn('[auth] session_logout_server_error');
-    } finally {
-      setUser(null);
-      onClose();
-    }
-    if (!serverConfirmed) {
-      const detail = localSignoutSaved
-        ? 'We could not confirm sign-out with the server. Please reconnect before signing in again.'
-        : 'We could not confirm sign-out or save it on this device. Please reconnect and try again.';
-      Alert.alert('Signed out on this device', detail);
-    }
+    onClose();
+    await logout.mutateAsync().catch(() => undefined);
   }
   async function handleThemeToggle() {
     try { await theme.toggleTheme(); }
@@ -72,12 +63,9 @@ export function ProfileDrawer({ onClose, onOpenFavorites, visible }: Props) {
   }
   function requestClose() {
     if (page === 'Support' && supportBack.current) { supportBack.current(); return; }
-    if (page === 'Your store') {
-      Alert.alert('Leave store registration?', 'The details entered here will be cleared when you leave.', [
-        { text: 'Keep editing', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: () => setPage(null) },
-      ]);
-    } else if (page) setPage(null);
+    if (page === 'Your store' && storeBack.current) { storeBack.current(); return; }
+    if (page === 'Store requests' && requestsBack.current) { requestsBack.current(); return; }
+    if (page) setPage(null);
     else onClose();
   }
   return <>
@@ -85,7 +73,7 @@ export function ProfileDrawer({ onClose, onOpenFavorites, visible }: Props) {
     <View style={[s.backdrop, { backgroundColor: theme.isDark ? '#000000AA' : '#20132E70' }]}>
       <Pressable accessibilityLabel="Close account menu" onPress={page === 'Your store' ? requestClose : onClose} style={StyleSheet.absoluteFill} />
       <SafeAreaView edges={['top', 'bottom', 'right']} style={[s.drawer, { backgroundColor: theme.colors.background }, (page === 'Your store' || page === 'Store requests' || page === 'Support') && s.storePage]}>
-        {page === 'Support' ? <ReturnSupportHub onClose={() => setPage(null)} onBackChange={(handler) => { supportBack.current = handler; }} /> : page === 'Store requests' ? <AdminStoresScreen onClose={() => setPage(null)} /> : page === 'Your store' ? <StoreRegistrationScreen onClose={() => setPage(null)} /> : <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {page === 'Support' ? <ReturnSupportHub onClose={() => setPage(null)} onBackChange={(handler) => { supportBack.current = handler; }} /> : page === 'Store requests' ? <AdminStoresScreen onClose={() => setPage(null)} onBackChange={(handler) => { requestsBack.current = handler; }} /> : page === 'Your store' ? <StoreRegistrationScreen onClose={() => setPage(null)} onBackChange={registerStoreBack} /> : <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.scroll}>
             <AccountDrawerHeader title={page ?? 'My account'} isPage={!!page}
               name={user?.fullName} phone={user?.phone} image={user?.profileImage}

@@ -113,7 +113,7 @@ test('autofill preserves typed details; explicit location replacement changes on
   assert.equal(replaced.line1, draft.line1);
   assert.equal(replaced.state, 'State');
   assert.deepEqual(validateAddress({ ...filled, city: '' }), {});
-  assert.deepEqual(validateAddress({ ...filled, id: 'legacy', district: '' }), {});
+  assert.ok(validateAddress({ ...filled, id: 'legacy', district: '' }).district);
   assert.ok(validateAddress({ ...filled, district: '' }).district);
   assert.ok(validateAddress({ ...filled, pincode: '', name: '', line1: '' }).pincode);
 });
@@ -183,32 +183,31 @@ function nodes(tree) {
   return tree && typeof tree === 'object' ? [tree, ...nodes(tree.props?.children)] : [];
 }
 test('delivery form exposes only the requested address fields and keeps them editable', () => {
-  let locate = 0;
-  const app = harness((react, form, location) => {
+  const app = harness((react, form) => {
     const { DeliveryAddressForm } = load('components/shop/cart/DeliveryAddressForm.tsx', { react,
       'react-native': { View: 'View', Text: 'Text', TextInput: 'Input', Pressable: 'Button', Linking: {} },
       '../../AppLoader': { AppLoader: 'Loader' }, './address.styles': { addressStyles: {} } });
-    return DeliveryAddressForm({ form, location, errors: {}, pending: false, onLocate: () => locate++, onChange() {} });
+    return DeliveryAddressForm({ form, errors: {}, pending: false, onChange() {} });
   });
   const form = { name: 'Customer', phone: '9876543210', line1: '', locality: 'Area', district: 'District', city: 'City', state: 'State', pincode: '190001', landmark: '', label: 'Home' };
   const tree = app.render(form, { status: 'ready' });
   const inputs = nodes(tree).filter((n) => n.type === 'Input');
   const labels = inputs.map((n) => n.props.accessibilityLabel);
   assert.deepEqual(labels, [
-    'Current Area / Village', 'Building / House / Shop name', 'District', 'PIN Code',
+    'Village / Mohalla / Current Area', 'House / Nearby Landmark', 'District', 'PIN Code',
   ]);
-  assert.equal(inputs[0].props.placeholder, 'Enter your village / area');
+  assert.equal(inputs[0].props.placeholder, 'e.g. your village or mohalla name');
   assert.ok(inputs.every((input) => input.props.editable));
-  nodes(tree).find((n) => n.type === 'Button' && nodes(n).some((c) => c.props?.children === 'Use current location')).props.onPress();
-  assert.equal(locate, 1);
+  assert.equal(inputs[3].props.keyboardType, 'number-pad');
+  assert.equal(inputs[3].props.maxLength, 6);
+  assert.ok(!nodes(tree).some((n) => ['Use current location', 'Open Settings'].includes(n.props?.children)));
   for (const hiddenLabel of ['City / Town', 'Landmark', 'State', 'Recipient name', 'Mobile number', 'Flat number']) {
-    assert.ok(!labels.some((label) => label.includes(hiddenLabel)), `${hiddenLabel} should not be visible`);
+    assert.ok(!labels.includes(hiddenLabel), `${hiddenLabel} should not be visible as a separate field`);
   }
 });
 
 function cartFixture(saved = [], user = { id: 'buyer', fullName: 'Customer', phone: '9876543210' }) {
-  let state = { status: 'ready', address: { locality: 'Detected area', district: 'District', city: 'City', state: 'State', pincode: '190001' } };
-  let open = false; let finishSave; let failSave; const saves = []; const ready = []; const automatic = [];
+  let open = false; let finishSave; let failSave; const saves = []; const ready = [];
   const query = { isSuccess: true, isPending: false, isError: false, data: { addresses: saved } };
   const props = { get open() { return open; }, onOpenChange: (value) => { open = value; }, onReadyChange: (value) => ready.push(value) };
   let Cart;
@@ -221,7 +220,7 @@ function cartFixture(saved = [], user = { id: 'buyer', fullName: 'Customer', pho
       '../../../services/addresses/address-queries': { useAddresses: () => query,
         useSaveAddress: () => ({ mutateAsync: (input) => { saves.push(input); return new Promise((resolve, reject) => { failSave = reject; finishSave = () => { const address = { ...input, id: 'saved' }; query.data.addresses = [address]; resolve({ address }); }; }); } }),
         useRemoveAddress: () => ({}) },
-      '../../../features/location/useDeliveryLocation': { useDeliveryLocation: (_id, auto) => { automatic.push(auto); return { state, locate: async () => {} }; } },
+      '../../../features/location/useDeliveryLocation': { useDeliveryLocation: () => assert.fail('Manual address entry must not detect location') },
       '../../../theme': { colors: { primary: 'purple' } },
       '../../../features/home/HomeIcon': { HomeIcon: 'Icon' },
       '../../AppLoader': { AppLoader: 'Loader' },
@@ -229,22 +228,23 @@ function cartFixture(saved = [], user = { id: 'buyer', fullName: 'Customer', pho
     }).CartAddressSection;
     return Cart(props);
   });
-  return { ...app, saves, ready, automatic, result: (next) => { state = next; }, finishSave: () => finishSave(), failSave: (error) => failSave(error) };
+  return { ...app, saves, ready, finishSave: () => finishSave(), failSave: (error) => failSave(error) };
 }
 
-test('checkout previews location without saving, prefills the form and saves only one confirmed address', async () => {
+test('manual checkout prefills only recipient details and saves one confirmed address', async () => {
   const app = cartFixture(); app.render();
   let tree = app.render();
   assert.equal(app.saves.length, 0);
-  assert.ok(nodes(tree).some((n) => n.props?.children === 'Confirm delivery address'));
+  assert.ok(nodes(tree).some((n) => n.props?.children === 'Add delivery address'));
   nodes(tree).find((n) => n.props?.accessibilityLabel === 'Choose delivery address').props.onPress();
   tree = app.render();
   let form = nodes(tree).find((n) => n.type === 'Form');
-  assert.equal(form.props.form.locality, 'Detected area');
+  assert.equal(form.props.form.locality, '');
+  assert.equal(form.props.form.pincode, '');
   assert.equal(form.props.form.name, 'Customer');
   assert.equal(form.props.form.phone, '9876543210');
   form.props.onChange('line1', 'Flat 5'); form.props.onChange('locality', 'User corrected area');
-  app.result({ status: 'ready', address: { locality: 'Late area', district: 'Other district', city: 'Other', state: 'Other', pincode: '190002' } });
+  form.props.onChange('district', 'Kupwara'); form.props.onChange('pincode', '193222');
   app.render(); tree = app.render(); form = nodes(tree).find((n) => n.type === 'Form');
   assert.equal(form.props.form.locality, 'User corrected area');
   assert.equal(form.props.form.line1, 'Flat 5');
@@ -259,7 +259,6 @@ test('checkout previews location without saving, prefills the form and saves onl
 test('a saved delivery address remains selected and is never replaced by detected location', () => {
   const address = { id: 'home', name: 'Saved customer', phone: '9876543210', line1: 'House 2', locality: 'Saved area', district: 'District', city: 'Saved city', state: 'State', pincode: '190001', landmark: '', label: 'Home' };
   const app = cartFixture([address]); app.render(); const tree = app.render();
-  assert.ok(app.automatic.every((value) => value === false));
   assert.deepEqual(app.ready.at(-1), { shippingAddressId: 'home', billingAddressId: 'home' });
   assert.equal(app.saves.length, 0);
   assert.ok(nodes(tree).some((n) => n.props?.children === 'Home - Saved customer'));
@@ -295,9 +294,8 @@ const saveButton = (tree) => nodes(tree).find((node) => node.type === 'Button'
   && nodes(node).some((child) => child.props?.children === 'Save & use this address'));
 const addressForm = (tree) => nodes(tree).find((node) => node.type === 'Form');
 
-test('missing GPS locality and profile name show exact errors beside Save and can be completed manually', async () => {
+test('missing manual fields and profile name show exact errors beside Save and can be completed', async () => {
   const app = cartFixture([], { id: 'buyer', fullName: '', phone: '9876543210' });
-  app.result({ status: 'ready', address: { ...address, locality: '' } });
   app.render();
   nodes(app.render()).find((node) => node.props?.accessibilityLabel === 'Choose delivery address').props.onPress();
   saveButton(app.render()).props.onPress();
@@ -309,6 +307,8 @@ test('missing GPS locality and profile name show exact errors beside Save and ca
     && node.props.children === form.props.errors.locality));
   form.props.onChange('locality', ' My village ');
   form.props.onChange('line1', ' House 7 ');
+  form.props.onChange('district', ' Kupwara ');
+  form.props.onChange('pincode', '193222');
   tree = app.render();
   assert.ok(nodes(tree).some((node) => node.props?.children === 'Enter recipient name.'));
   addressForm(tree).props.onChange('name', ' Ali ');
@@ -329,6 +329,9 @@ test('backend validation errors are attached to editable address fields and reco
   const app = cartFixture(); app.render();
   nodes(app.render()).find((node) => node.props?.accessibilityLabel === 'Choose delivery address').props.onPress();
   addressForm(app.render()).props.onChange('line1', 'House 7');
+  addressForm(app.render()).props.onChange('locality', 'Village');
+  addressForm(app.render()).props.onChange('district', 'Kupwara');
+  addressForm(app.render()).props.onChange('pincode', '193222');
   saveButton(app.render()).props.onPress();
   app.failSave(createApiError('Invalid request.', { status: 400, issues: { state: ['State is too long.'] } }));
   await tick();
@@ -363,4 +366,29 @@ test('invalid hidden postal values are validated and revealed for correction wit
   stateInput.props.onChangeText('Jammu and Kashmir');
   assert.deepEqual(validateAddress({ ...form, city: '', state: '', landmark: '' }), {});
   app.unmount();
+});
+
+test('manual form requires all four fields, including district when editing a legacy address', () => {
+  const { blankAddress, validateAddress } = load('components/shop/cart/address-form.ts');
+  const manual = { ...blankAddress, name: 'Buyer', phone: '9876543210',
+    locality: 'Test village', line1: 'Near the school', district: 'Kupwara', pincode: '193222' };
+  assert.deepEqual(validateAddress(manual), {});
+  for (const key of ['locality', 'line1', 'district', 'pincode']) {
+    assert.ok(validateAddress({ ...manual, [key]: ' ' })[key]);
+  }
+  assert.ok(validateAddress({ ...manual, id: 'legacy', district: '' }).district);
+  for (const pincode of ['12345', '1234567', '012345', '19A222']) {
+    assert.ok(validateAddress({ ...manual, pincode }).pincode);
+  }
+});
+
+test('editing a saved address preserves optional legacy address fields', async () => {
+  const saved = { ...address, id: 'old', name: 'Buyer', phone: '9876543210',
+    line1: 'House 1', landmark: 'Old landmark', label: 'Home' };
+  const app = cartFixture([saved]); app.render();
+  nodes(app.render()).find((node) => node.type === 'Button' && nodes(node).some((child) => child.props?.children === 'Edit')).props.onPress();
+  addressForm(app.render()).props.onChange('line1', 'House 2');
+  saveButton(app.render()).props.onPress();
+  assert.deepEqual(app.saves[0], { ...saved, line1: 'House 2' });
+  app.finishSave(); await tick(); app.unmount();
 });

@@ -10,7 +10,7 @@ const categories: { value: ProductCategory; label: string; icon: string; color: 
   { value: 'Electronics', label: 'Electronics', icon: '🎧', color: '#EEEDFF' },
   { value: 'Home', label: 'Home & Living', icon: '🛋️', color: '#E6FBF2' },
   { value: 'Accessories', label: 'Accessories', icon: '👜', color: '#FFF3E5' },
-  { value: 'Other', label: 'More', icon: '', color: '#F7F7FD' },
+  { value: 'Other', label: 'Other', icon: '', color: '#F7F7FD' },
 ];
 
 export function HomeCategories({ selected, onSelect }: { selected: ProductCategory | 'All'; onSelect: (value: ProductCategory | 'All') => void }) {

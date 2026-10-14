@@ -2,7 +2,8 @@ import { AppLoader } from '../../components/AppLoader';
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from "expo-image-picker";
-import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { uploadPublicImage } from '../../services/media/image-upload';
+import { getSessionScope, assertUserSession } from '../../services/auth/session-scope';
 import { ProductColor, SellerProduct, SellerProductInput } from "./products/product-api";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { formStyles as s } from "./seller-product-form.styles";
@@ -45,6 +46,7 @@ export function SellerProductForm({ product, onSave, onClose }: {
   const photoCount = images.length + colors.reduce((count, color) => count + color.images.length, 0);
   const busy = picking || saving;
   async function pickPhotos(target: { kind: "general" } | { kind: "color"; index: number }) {
+    const session = getSessionScope();
     const current = target.kind === "general" ? images.length : colors[target.index].images.length;
     const remaining = Math.min(12 - photoCount, (target.kind === "general" ? 5 : 4) - current);
     if (remaining <= 0) return;
@@ -57,13 +59,9 @@ export function SellerProductForm({ product, onSave, onClose }: {
       if (!result.canceled) {
         const added: string[] = [];
         for (const asset of result.assets.slice(0, remaining)) {
-          const context = ImageManipulator.manipulate(asset.uri);
-          context.resize({ width: 800 });
-          const image = await context.renderAsync();
-          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.65, base64: true });
-          if (!saved.base64 || saved.base64.length > 682664) throw new Error("A photo is too large. Choose a smaller image.");
-          added.push(`data:image/jpeg;base64,${saved.base64}`);
+          added.push(await uploadPublicImage(asset, session, '/media/products'));
         }
+        assertUserSession(session);
         if (target.kind === "general") setImages((old) => [...old, ...added]);
         else setColors((old) => old.map((color, index) =>
           index === target.index ? { ...color, images: [...color.images, ...added] } : color));

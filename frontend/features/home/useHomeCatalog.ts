@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ProductCategory } from '../../data/products';
 import { useShopProducts } from '../../services/products/product-queries';
 import { useFavorites, useToggleFavorite } from '../../services/favorites/favorite-queries';
@@ -13,13 +13,14 @@ export function useHomeCatalog(onOpen: (id: string) => void, selectedCategory?: 
   const query = useShopProducts(category);
   const favorites = useFavorites();
   const favoriteMutation = useToggleFavorite();
+  const { mutateAsync: mutateFavorite } = favoriteMutation;
   const queryClient = useQueryClient();
   const pendingFavoriteLocks = useRef(new Set<string>());
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(() => new Set());
   const { feedback, showFeedback } = useTimedFeedback();
   const products = useMemo(() => query.data?.pages.flatMap((page) => page.products) ?? [], [query.data]);
   const favoriteIds = useMemo(() => new Set(favorites.data?.favorites.map((item) => item.productId)), [favorites.data]);
-  function addToCart(id: string) {
+  const addToCart = useCallback((id: string) => {
     const product = products.find((item) => item.id === id);
     if (product && !queryClient.getQueryData<{ product: ShopProductDetail }>(['shop-product', id])) {
       queryClient.setQueryData<{ product: ShopProductDetail }>(['shop-product', id], {
@@ -34,14 +35,14 @@ export function useHomeCatalog(onOpen: (id: string) => void, selectedCategory?: 
       }, { updatedAt: 0 });
     }
     onOpen(id);
-  }
-  async function toggleFavorite(id: string) {
+  }, [products, queryClient, onOpen]);
+  const toggleFavorite = useCallback(async (id: string) => {
     if (pendingFavoriteLocks.current.has(id) || !favorites.isSuccess) return;
     pendingFavoriteLocks.current.add(id);
     setPendingFavoriteIds((current) => new Set(current).add(id));
     const isFavorite = favoriteIds.has(id);
     try {
-      await favoriteMutation.mutateAsync({ isFavorite, productId: id });
+      await mutateFavorite({ isFavorite, productId: id });
       showFeedback(isFavorite ? 'Removed from wishlist' : 'Saved to wishlist', 'success', isFavorite ? 'favoriteRemoved' : 'favoriteAdded');
     } catch (error) {
       showFeedback(isApiError(error) ? error.message : 'Could not update wishlist. Please try again.', 'error');
@@ -53,7 +54,7 @@ export function useHomeCatalog(onOpen: (id: string) => void, selectedCategory?: 
         return next;
       });
     }
-  }
+  }, [favorites.isSuccess, favoriteIds, mutateFavorite, showFeedback]);
   return { category, setCategory, query, products, favorites, favoriteIds, favoriteMutation, pendingFavoriteIds,
     addToCart, toggleFavorite, feedback };
 }

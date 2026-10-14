@@ -2,7 +2,8 @@ import { AppLoader } from '../AppLoader';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { uploadPublicImage } from '../../services/media/image-upload';
+import { getSessionScope, assertUserSession } from '../../services/auth/session-scope';
 import { useProfile } from '../../hooks/useProfile';
 import { AuthenticatedUser } from '../../services/api/auth-api';
 import { ProfileAvatar } from './ProfileAvatar';
@@ -21,16 +22,14 @@ function ProfileFields({ user, pending, onSave }: { user: AuthenticatedUser; pen
   const [error, setError] = useState('');
   const busy = pending || picking;
   async function pickPhoto() {
+    const session = getSessionScope();
     setPicking(true); setError('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 });
       if (result.canceled) return;
-      const context = ImageManipulator.manipulate(result.assets[0].uri);
-      context.resize({ width: 512 });
-      const image = await context.renderAsync();
-      const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
-      if (!saved.base64 || saved.base64.length > 682664) throw new Error('Photo is too large. Please choose a smaller image.');
-      setPhoto(`data:image/jpeg;base64,${saved.base64}`);
+      const uploaded = await uploadPublicImage(result.assets[0], session, '/media/profile', 512);
+      assertUserSession(session);
+      setPhoto(uploaded);
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not open this photo.'); }
     finally { setPicking(false); }
   }

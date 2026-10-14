@@ -5,6 +5,23 @@ const path = require('node:path');
 const Module = require('node:module');
 const ts = Module.createRequire(path.resolve(__dirname, '../package.json'))('typescript');
 
+for (const offline of [false, true]) {
+  test(`pending logout is revoked before OTP login; network failure blocks login (${offline})`, async () => {
+    const calls = [];
+    const { authApi } = load('services/api/auth-api.ts', {
+      '../auth/session-storage': { hasPendingLogout: async () => true, clearPendingLogout: async () => calls.push('cleared') },
+      './client': { apiRequest: async (path) => {
+        calls.push(path);
+        if (offline) throw new Error('offline');
+        return {};
+      } },
+    });
+    if (offline) await assert.rejects(authApi.verifyOtp('phone', 'code'), /offline/);
+    else await authApi.verifyOtp('phone', 'code');
+    assert.deepEqual(calls, offline ? ['/auth/logout'] : ['/auth/logout', 'cleared', '/auth/otp/verify']);
+  });
+}
+
 function load(relative, mocks = {}) {
   const filename = path.resolve(__dirname, '..', relative);
   const output = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
@@ -308,7 +325,7 @@ test('refresh network failure preserves the session and OTP 401 never starts a r
       ok: false, status: 401, headers: new Headers(),
       json: async () => ({ message: 'Unauthorized', code: 'ACCESS_TOKEN_INVALID' }),
     });
-    await assert.rejects(client.apiRequest('/private/data'), (error) => error.status === 401);
+    await assert.rejects(client.apiRequest('/private/data'), (error) => error.kind === 'network' && error.status === undefined);
     await assert.rejects(client.apiRequest('/auth/otp/verify'), (error) => error.status === 401);
     assert.equal(refreshCalls, 1);
     assert.equal(invalidSessions, 0);

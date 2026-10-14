@@ -5,7 +5,7 @@ const path = require('node:path');
 const Module = require('node:module');
 const req = Module.createRequire(path.resolve(__dirname, '../package.json'));
 const ts = req('typescript');
-function render(overrides = {}, queryOverrides = {}, mutate = async () => ({ order: { id: 'saved' } }), requestLocation = async () => ({ status: 'skipped' })) {
+function render(overrides = {}, queryOverrides = {}, mutate = async () => ({ order: { id: 'saved' } })) {
   const filename = path.resolve(__dirname, '../components/shop/checkout/InlineCheckout.tsx');
   const target = new Module(filename);
   const calls = [];
@@ -13,7 +13,7 @@ function render(overrides = {}, queryOverrides = {}, mutate = async () => ({ ord
     if (name.endsWith('/ThemeProvider')) return { useAppTheme: () => ({ isDark: false, colors: { background: '#fff', surface: '#fff', border: '#eee', text: '#000', muted: '#777', raised: '#f5f5f5', primary: '#7139F5' } }) };
     if (name.endsWith('/AppLoader')) return { AppLoader: 'ActivityIndicator' };
     if (name === 'react') return { useRef: (value) => ({ current: value }), useState: (value) => [value, () => {}] };
-    if (name.endsWith('/LocationProvider')) return { useCheckoutLocation: () => ({ requestForCheckout: requestLocation }) };
+    if (name.includes('/location/') || name === 'expo-location') assert.fail('Manual checkout must not load GPS');
     if (name === 'react-native') return { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner' };
     if (name.endsWith('/order-queries')) return {
       useCheckoutQuote: () => ({ error: new Error('Quote unavailable'), data: { quote: { checkoutKey: 'server-key', items: [
@@ -45,7 +45,7 @@ function textNodes(node) {
   return node && typeof node === 'object' ? textNodes(node.props?.children) : [];
 }
 test('stale, blocked or pending totals cannot place an order', () => {
-  for (const [props, query] of [[{ address: null }, {}], [{ blocked: true }, {}], [{ busy: true }, {}], [{}, { isFetching: true }], [{}, { isError: true }], [{}, { data: undefined }]]) {
+  for (const [props, query] of [[{ address: null }, {}], [{ blocked: true }, {}], [{ busy: true }, {}], [{}, { isFetching: true }], [{}, { isPlaceholderData: true }], [{}, { isError: true }], [{}, { data: undefined }]]) {
     assert.equal(render(props, query).button.props.disabled, true);
   }
 });
@@ -56,7 +56,7 @@ test('double tap sends one COD order using the server quote and reports success'
   button.props.onPress(); button.props.onPress();
   await new Promise(setImmediate);
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0], { shippingAddressId: 'a', billingAddressId: 'a', checkoutKey: 'server-key', paymentMethod: 'cod', location: { status: 'skipped' } });
+  assert.deepEqual(calls[0], { shippingAddressId: 'a', billingAddressId: 'a', checkoutKey: 'server-key', paymentMethod: 'cod' });
   complete({ order: { id: 'saved' } });
   await new Promise(setImmediate);
   assert.equal(saved, 'saved');
@@ -72,28 +72,33 @@ test('checkout has no bill summary and waits for the server quote before placing
   assert.equal(result.button.props.disabled, true);
 });
 
-test('denied and unavailable location still place orders; a shared fix is forwarded', async () => {
-  for (const location of [{ status: 'denied' }, { status: 'unavailable' },
-    { status: 'captured', sample: { latitude: 34, longitude: 74, accuracy: 100, capturedAt: new Date().toISOString() } }]) {
-    const { button, calls } = render({}, {}, undefined, async () => location);
+test('Cart and Buy Now place COD immediately without any location module or payload', async () => {
+  const buyNow = { productId: 'product', color: 'Blue', size: 'M', quantity: 1, purchaseId: 'purchase-123' };
+  for (const address of [{ shippingAddressId: 'a', billingAddressId: 'a' },
+    { shippingAddressId: 'a', billingAddressId: 'b', buyNow }]) {
+    const { button, calls } = render({ address });
     button.props.onPress();
-    await new Promise(setImmediate);
     assert.equal(calls.length, 1);
-    assert.deepEqual(calls[0].location, location);
+    assert.deepEqual(calls[0], { ...address, checkoutKey: 'server-key', paymentMethod: 'cod' });
+    assert.equal('location' in calls[0], false);
+    await new Promise(setImmediate);
   }
 });
 
-test('waiting for location locks checkout and cancellation prevents placing after logout', async () => {
-  let finish;
-  const pending = new Promise((resolve) => { finish = resolve; });
-  const { button, calls } = render({}, {}, undefined, () => pending);
-  button.props.onPress(); button.props.onPress();
-  assert.equal(calls.length, 0);
-  finish({ status: 'denied' });
+test('failed placement releases busy state and retries the same checkout key', async () => {
+  const busy = []; const successes = [];
+  let attempts = 0;
+  const { button, calls } = render({ onBusy: (value) => busy.push(value), onSuccess: (id) => successes.push(id) }, {}, async () => {
+    if (++attempts === 1) throw new Error('Network unavailable');
+    return { order: { id: 'saved' } };
+  });
+  button.props.onPress();
   await new Promise(setImmediate);
-  assert.equal(calls.length, 1);
-  const cancelled = render({}, {}, undefined, async () => { throw new Error('Signed out'); });
-  cancelled.button.props.onPress();
+  assert.deepEqual(busy, [true, false]);
+  assert.deepEqual(successes, []);
+  button.props.onPress();
   await new Promise(setImmediate);
-  assert.equal(cancelled.calls.length, 0);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], calls[1]);
+  assert.deepEqual(successes, ['saved']);
 });

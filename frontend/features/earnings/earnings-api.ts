@@ -20,7 +20,7 @@ export function useEarnings(admin: boolean, period = 'month', date = localDate()
   const active = useScreenActive();
   return useQuery({ queryKey: ['earnings', user?.id, admin, period, date, storeId, page, state],
     queryFn: () => apiRequest<Statement>(`/${admin ? 'admin' : 'seller'}/earnings?period=${period}&date=${date}&page=${page}&state=${state}${admin && storeId ? `&storeId=${storeId}` : ''}`, { method: 'GET' }),
-    enabled: active && !!user?.roles?.includes(admin ? 'admin' : 'seller'), staleTime: 30000, refetchInterval: active ? 30000 : false, retry: 1 });
+    enabled: active && !!user?.roles?.includes(admin ? 'admin' : 'seller'), staleTime: 30000, refetchInterval: active ? 30000 : false });
 }
 export type PayoutAccount = { method: 'bank'; accountHolder: string; accountNumber: string; ifsc: string }
   | { method: 'upi'; upiId: string };
@@ -31,6 +31,6 @@ export function usePayoutAccount(admin: boolean, storeId?: string) {
     queryFn: () => apiRequest<{ account: PayoutAccount | null }>(admin
       ? `/admin/earnings/stores/${storeId}/account` : '/seller/earnings/account', { method: 'GET' }),
     enabled: !!user?.roles?.includes(admin ? 'admin' : 'seller') && (!admin || !!storeId),
-    staleTime: 0, gcTime: 0, retry: 1,
+    staleTime: 0, gcTime: 0,
   });
 }

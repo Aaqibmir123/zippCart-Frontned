@@ -1,7 +1,7 @@
 import { AppLoader } from '../../components/AppLoader';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProfileDrawer } from '../../components/ProfileDrawer';
@@ -13,6 +13,7 @@ import { HomeHero } from '../../features/home/HomeHero';
 import { HomeCategories } from '../../features/home/HomeCategories';
 import { HomeProductCard } from '../../features/home/HomeProductCard';
 import { HomeSection } from '../../features/home/HomeSection';
+import { WishlistStatus } from '../../features/home/WishlistStatus';
 import { useProgressiveCatalog } from '../../features/home/useProgressiveCatalog';
 import { useHomeCatalog } from '../../features/home/useHomeCatalog';
 import { h } from '../../features/home/home.styles';
@@ -24,13 +25,15 @@ export function HomeScreen() {
   const theme = useAppTheme();
   const mode = route.params?.view ?? 'home';
   const [drawer, setDrawer] = useState(false);
+  const focused = useIsFocused();
+  useEffect(() => { if (!focused) setDrawer(false); }, [focused]);
   const [search, setSearch] = useState(false);
   const [catalogY, setCatalogY] = useState(0);
   const list = useRef<FlatList<ShopProduct>>(null);
   const { width } = useWindowDimensions();
   const columns = width >= 700 ? 4 : 2;
   const cardWidth = (width - 32 - (columns - 1) * 12) / columns;
-  const openProduct = (id: string) => navigation.navigate('ProductDetails', { productId: id });
+  const openProduct = useCallback((id: string) => navigation.navigate('ProductDetails', { productId: id }), [navigation]);
   const home = useHomeCatalog(openProduct);
   const { query } = home;
   const offers = home.products.filter((product) => product.mrp > product.price);
@@ -45,9 +48,9 @@ export function HomeScreen() {
 
   function productCard(product: ShopProduct, itemWidth: number) {
     return <HomeProductCard product={product} width={itemWidth} favorite={home.favoriteIds.has(product.id)}
-      favoritePending={home.pendingFavoriteIds.has(product.id) || !home.favorites.isSuccess}
-      onOpen={() => openProduct(product.id)} onFavorite={() => void home.toggleFavorite(product.id)}
-      onAdd={() => void home.addToCart(product.id)} />;
+      favoritePending={home.pendingFavoriteIds.has(product.id)} favoriteDisabled={!home.favorites.isSuccess}
+      onOpen={openProduct} onFavorite={home.toggleFavorite}
+      onAdd={home.addToCart} />;
   }
 
   return <SafeAreaView edges={['top']} style={[h.page, { backgroundColor: theme.colors.background }]}>
@@ -66,19 +69,18 @@ export function HomeScreen() {
         {home.category !== 'All' && <Pressable accessibilityRole="button" onPress={() => home.setCategory('All')} style={[h.retry, { alignSelf: 'flex-start', marginLeft: 16 }]}>
           <Text style={[h.link, { color: theme.colors.primary }]}>← All categories</Text>
         </Pressable>}
-        {home.favorites.isError && <Pressable style={h.retry} onPress={() => void home.favorites.refetch()}>
-          <Text style={[h.hint, { color: theme.colors.muted }]}>Wishlist unavailable. Tap to retry.</Text>
-        </Pressable>}
+        <WishlistStatus pending={home.favorites.isPending} fetching={home.favorites.isFetching}
+          error={home.favorites.isError} onRetry={() => void home.favorites.refetch()} />
         <View onLayout={(event) => setCatalogY(event.nativeEvent.layout.y)}>
           <HomeSection title={home.category !== 'All' ? home.category : mode === 'offers' ? 'Today’s offers' : mode === 'categories' ? 'All products' : 'Discover'}
             onSeeAll={mode === 'home' ? () => navigation.navigate('ShopTabs', { screen: 'Home', params: { view: 'categories' } }) : undefined} />
         </View>
-        {query.isError && !query.isFetchNextPageError && home.products.length > 0 && <Pressable style={h.retry} onPress={() => void query.refetch()}><Text style={[h.hint, { color: theme.colors.muted }]}>Could not refresh products. Tap to retry.</Text></Pressable>}
+        {query.isError && !query.isFetchNextPageError && home.products.length > 0 && <Pressable accessibilityRole="button" disabled={query.isFetching} style={h.retry} onPress={() => void query.refetch()}><Text style={[h.hint, { color: theme.colors.muted }]}>Could not refresh products. Tap to retry.</Text></Pressable>}
       </>}
       renderItem={({ item }) => productCard(item, cardWidth)}
       ListEmptyComponent={<View style={[h.state, query.isPending && { padding: 0, alignItems: 'stretch' }]}>
         {query.isPending ? <View accessibilityLabel="Loading products" accessibilityLiveRegion="polite" style={{ width: '100%' }}>
-          <Text style={[h.hint, { color: theme.colors.muted, textAlign: 'center', marginBottom: 14 }]}>Finding products near you…</Text>
+          <Text style={[h.hint, { color: theme.colors.muted, textAlign: 'center', marginBottom: 14 }]}>Loading products…</Text>
           <View style={h.skeletonGrid}>{Array.from({ length: 6 }, (_, index) =>
             <View key={index} accessible={false} style={[h.skeletonCard, { width: cardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <View style={[h.skeletonImage, { backgroundColor: theme.colors.raised }]} />
@@ -87,7 +89,7 @@ export function HomeScreen() {
               <View style={[h.skeletonPriceLine, { backgroundColor: theme.colors.raised }]} />
             </View>)}</View>
         </View>
-          : query.isError ? <><Text style={[h.hint, { color: theme.colors.muted }]}>Could not load products.</Text><Pressable onPress={() => void query.refetch()} style={h.retry}><Text style={[h.link, { color: theme.colors.primary }]}>Try again</Text></Pressable></>
+          : query.isError ? <><Text style={[h.hint, { color: theme.colors.muted }]}>Could not load products.</Text><Pressable accessibilityRole="button" disabled={query.isFetching} onPress={() => void query.refetch()} style={h.retry}><Text style={[h.link, { color: theme.colors.primary }]}>Try again</Text></Pressable></>
           : <Text style={[h.hint, { color: theme.colors.muted }]}>{mode === 'offers' ? (query.hasNextPage ? 'No offers found yet. Explore more below.' : 'No offers right now. Check back soon.') : 'No products in this category.'}</Text>}
       </View>}
       ListFooterComponent={paging.hasMore ? <Pressable accessibilityRole="button" disabled={query.isFetching}

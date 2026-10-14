@@ -3,10 +3,10 @@ import type { DetectedAddress } from '../../../features/location/delivery-locati
 
 export const blankAddress: AddressInput = { name: '', phone: '', line1: '', locality: '', district: '', landmark: '', city: '', state: '', pincode: '', label: 'Home' };
 export const addressFields: { key: Exclude<keyof AddressInput, 'label'>; label: string; placeholder: string; max: number; numeric?: boolean }[] = [
-  { key: 'locality', label: 'Current Area / Village', placeholder: 'Enter your village / area', max: 100 },
-  { key: 'line1', label: 'Building / House / Shop name', placeholder: 'Building, house or shop name', max: 160 },
-  { key: 'district', label: 'District', placeholder: 'District', max: 80 },
-  { key: 'pincode', label: 'PIN Code', placeholder: '6-digit PIN code', max: 6, numeric: true },
+  { key: 'locality', label: 'Village / Mohalla / Current Area', placeholder: 'e.g. your village or mohalla name', max: 100 },
+  { key: 'line1', label: 'House / Nearby Landmark', placeholder: 'e.g. House 7, near the school', max: 160 },
+  { key: 'district', label: 'District', placeholder: 'e.g. Kupwara', max: 80 },
+  { key: 'pincode', label: 'PIN Code', placeholder: 'Enter your 6-digit PIN code', max: 6, numeric: true },
 ];
 // Keep the normal form compact, but let the user correct invalid hidden values.
 export const additionalAddressFields: typeof addressFields = [
@@ -26,9 +26,7 @@ export function fillDetectedAddress<T extends AddressInput>(form: T, address: De
 export function validateAddress(form: AddressInput & { id?: string }) {
   const errors: Partial<Record<keyof AddressInput, string>> = {};
   for (const { key, label, max } of addressFields) {
-    const missingLegacyDistrict = key === 'district' && !!form.id && !form.district.trim();
-    if (key !== 'landmark' && key !== 'city' && !missingLegacyDistrict
-      && form[key].trim().length < (key === 'line1' ? 3 : 2)) errors[key] = 'Enter ' + label.toLowerCase() + '.';
+    if (form[key].trim().length < (key === 'line1' ? 3 : 2)) errors[key] = 'Enter ' + label.toLowerCase() + '.';
     if (form[key].trim().length > max) errors[key] = label + ' is too long.';
   }
   if (form.name.trim().length < 2) errors.name = 'Enter recipient name.';

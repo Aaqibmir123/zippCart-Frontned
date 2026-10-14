@@ -17,8 +17,9 @@ import { StoreDetails } from './store-api';
 
 const stepIcons = ["store", "pin", "document", "wallet"] as const;
 
-export function StoreRegistrationScreen({ onClose, existing, onSaved }: {
+export function StoreRegistrationScreen({ onClose, existing, onSaved, onBackChange }: {
   onClose: () => void; existing?: StoreDetails; onSaved?: () => void;
+  onBackChange?: (handler: (() => void) | null) => void;
 }) {
   const { step, form, errors, busy, submissionError, update, next, back, loginPhone, phoneVerified, verifyPhone, registeredPhone } =
     useStoreRegistration(existing, onSaved);
@@ -26,8 +27,10 @@ export function StoreRegistrationScreen({ onClose, existing, onSaved }: {
   const current = steps[step];
   const Step = [StoreDetailsStep, AddressStep, DocumentsStep, PayoutStep][step];
   useEffect(() => {
+    // Android Modal sends Back to onRequestClose instead of child BackHandler listeners.
+    onBackChange?.(goBack);
     const listener = BackHandler.addEventListener('hardwareBackPress', () => { goBack(); return true; });
-    return () => listener.remove();
+    return () => { listener.remove(); onBackChange?.(null); };
   });
 
   if (registeredPhone) return <View style={s.page}><View style={s.card}>
@@ -38,6 +41,7 @@ export function StoreRegistrationScreen({ onClose, existing, onSaved }: {
 
   function goBack() {
     if (busy) return;
+    if (registeredPhone) { onClose(); return; }
     Keyboard.dismiss();
     if (step === 0) {
       Alert.alert(

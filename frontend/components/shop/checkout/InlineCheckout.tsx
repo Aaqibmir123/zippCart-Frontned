@@ -1,6 +1,5 @@
 import { AppLoader } from '../../AppLoader';
-import { useRef, useState } from 'react';
-import { useCheckoutLocation } from '../../../features/location/LocationProvider';
+import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { CheckoutAddress } from '../../../services/api/order-api';
 import { useCheckoutQuote, usePlaceOrder } from '../../../services/orders/order-queries';
@@ -15,22 +14,17 @@ export function InlineCheckout({ address, revision, blocked, busy, onAddress, on
   const theme = useAppTheme();
   const quote = useCheckoutQuote(address, revision, !blocked && !busy);
   const place = usePlaceOrder();
-  const { requestForCheckout } = useCheckoutLocation();
-  const [locating, setLocating] = useState(false);
   const lock = useRef(false);
   const details = quote.data?.quote;
-  const currentQuote = details && !quote.isFetching && !quote.isPlaceholderData ? details : null;
-  const disabled = !address || busy || blocked || locating || place.isPending || quote.isFetching || !details || quote.isError;
+  const disabled = !address || busy || blocked || place.isPending || quote.isFetching || quote.isPlaceholderData || !details || quote.isError;
   async function submit() {
     if (lock.current || disabled || !address || !details) return;
-    lock.current = true; onBusy(true); setLocating(true);
+    lock.current = true; onBusy(true);
     try {
-      const location = await requestForCheckout();
-      setLocating(false);
-      const result = await place.mutateAsync({ ...address, checkoutKey: details.checkoutKey, paymentMethod: 'cod', location });
+      const result = await place.mutateAsync({ ...address, checkoutKey: details.checkoutKey, paymentMethod: 'cod' });
       onSuccess(result.order.id);
     } catch { /* Preserve the same checkout key so a retry cannot duplicate an order. */ }
-    finally { lock.current = false; setLocating(false); onBusy(false); }
+    finally { lock.current = false; onBusy(false); }
   }
   return <>
     <PaymentMethods selected onSelect={() => undefined} disabled={place.isPending} />
@@ -39,9 +33,9 @@ export function InlineCheckout({ address, revision, blocked, busy, onAddress, on
       <Pressable accessibilityRole="button" disabled={busy || quote.isFetching} onPress={() => void quote.refetch()} style={s.retry}><Text style={[s.link, { color: theme.colors.primary }]}>Try again</Text></Pressable></View>}
     {!address && <Pressable accessibilityRole="button" onPress={onAddress} style={s.retry}><Text style={[s.link, { color: theme.colors.primary }]}>Choose a delivery address</Text></Pressable>}
     {place.isError && <Text accessibilityRole="alert" style={s.errorCopy}>{place.error.message}</Text>}
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy: locating || place.isPending }} disabled={disabled}
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy: place.isPending }} disabled={disabled}
       onPress={() => void submit()} style={[s.place, { backgroundColor: theme.colors.primary }, disabled && s.disabled]}>
-      {locating || place.isPending ? <AppLoader color="#fff" accessibilityLabel={locating ? 'Checking location' : 'Placing order'} /> : <Text style={s.placeText}>Place Order →</Text>}
+      {place.isPending ? <AppLoader color="#fff" accessibilityLabel="Placing order" /> : <Text style={s.placeText}>Place Order →</Text>}
     </Pressable>
   </>;
 }

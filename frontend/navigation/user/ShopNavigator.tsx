@@ -3,7 +3,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useAuth } from '../../context/AuthContext';
-import { LocationProvider } from '../../features/location/LocationProvider';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { ShopTabBar } from '../../components/shop/ShopTabBar';
@@ -27,7 +26,7 @@ const Stack = createNativeStackNavigator<ShopStackParamList>();
 
 export function ShopNavigator() {
   return (
-    <ThemeProvider><LocationProvider><Stack.Navigator screenOptions={{ headerShown: false }}>
+    <ThemeProvider><Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen component={ShopTabs} name="ShopTabs" />
       <Stack.Screen component={ProductDetailsScreen} name="ProductDetails" />
       <Stack.Screen component={OrderDetailsScreen} name="OrderDetails" />
@@ -36,7 +35,7 @@ export function ShopNavigator() {
       <Stack.Screen component={CheckoutScreen} name="Checkout" />
       <Stack.Screen component={CategoriesScreen} name="Categories" />
       <Stack.Screen component={ProductListingScreen} name="ProductListing" />
-    </Stack.Navigator></LocationProvider></ThemeProvider>
+    </Stack.Navigator></ThemeProvider>
   );
 }
 

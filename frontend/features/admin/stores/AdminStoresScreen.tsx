@@ -1,5 +1,5 @@
 import { AppLoader } from '../../../components/AppLoader';
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,17 +16,23 @@ export function AdminStoresScreen({
   embedded = false,
   initialFilter = "pending",
   onOpenRequest,
+  onBackChange,
 }: {
   onClose: () => void;
   embedded?: boolean;
   initialFilter?: RequestFilter;
   onOpenRequest?: (id: string) => void;
+  onBackChange?: (handler: (() => void) | null) => void;
 }) {
   const { user } = useAuth();
   const allowed = !!user?.roles?.includes("admin");
   const [filter, setFilter] = useState<RequestFilter>(initialFilter);
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
+  useEffect(() => {
+    onBackChange?.(selected ? () => setSelected(null) : onClose);
+    return () => onBackChange?.(null);
+  }, [selected, onClose, onBackChange]);
   const query = useInfiniteQuery({
     queryKey: ["admin-stores", user?.id, filter],
     queryFn: ({ pageParam }) => adminStoreApi.list(filter, pageParam),

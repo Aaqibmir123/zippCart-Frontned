@@ -89,9 +89,9 @@ test('home connects scroll, bounded data and explicit retry to progressive pagin
   let armed = 0; const more = [];
   const products = Array.from({ length: 24 }, (_, i) => ({ id: String(i), price: 10, mrp: 20 }));
   const { HomeScreen } = load('screens/user/HomeScreen.tsx', {
-    react: { useState: (value) => [value, () => {}], useRef: () => ({ current: null }), useEffect() {} },
+    react: { useCallback: (callback) => callback, useState: (value) => [value, () => {}], useRef: () => ({ current: null }), useEffect() {} },
     'react-native': { FlatList: 'List', View: 'View', Text: 'Text', Pressable: 'Button', useWindowDimensions: () => ({ width: 360 }) },
-    '@react-navigation/native': { useNavigation: () => ({ navigate() {} }), useRoute: () => ({}) },
+    '@react-navigation/native': { useIsFocused: () => true, useNavigation: () => ({ navigate() {} }), useRoute: () => ({}) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeArea' },
     '../../components/AppLoader': { AppLoader: 'Loader' },
     '../../components/ProfileDrawer': { ProfileDrawer: 'Drawer' },
@@ -102,6 +102,7 @@ test('home connects scroll, bounded data and explicit retry to progressive pagin
     '../../features/home/HomeCategories': { HomeCategories: 'Categories' },
     '../../features/home/HomeProductCard': { HomeProductCard: 'Card' },
     '../../features/home/HomeSection': { HomeSection: 'Section' },
+    '../../features/home/WishlistStatus': { WishlistStatus: 'WishlistStatus' },
     '../../features/home/home.styles': { h: {}, palette: {} },
     '../../features/home/useHomeCatalog': { useHomeCatalog: () => ({ products, category: 'All', query: {}, favorites: {}, favoriteIds: new Set(), favoriteMutation: {}, quickAdd: {} }) },
     '../../features/home/useProgressiveCatalog': { useProgressiveCatalog: () => ({ count: 6, hasMore: true,
@@ -114,25 +115,44 @@ test('home connects scroll, bounded data and explicit retry to progressive pagin
   assert.equal(armed, 1); assert.deepEqual(more, [false, true]);
 });
 
-test('bottom tabs preserve routes, cancellation and account drawer navigation', () => {
+test('bottom tabs preserve routes, cancellation and account drawer navigation', async () => {
+  const { TabActions, TabRouter, CommonActions } = await import('@react-navigation/routers');
   const dispatched = []; const events = []; let opened = false; let cancel = false;
   const { ShopTabBar } = load('components/shop/ShopTabBar.tsx', {
-    react: { useState: () => [opened, (value) => { opened = value; }] },
+    react: { useEffect() {}, useState: () => [opened, (value) => { opened = value; }] },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Button', StyleSheet: { create: (s) => s } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 34, left: 0, right: 0 }) },
-    '@react-navigation/native': { TabActions: { jumpTo: (name) => name } },
+    '@react-navigation/native': { useIsFocused: () => true, TabActions },
     '../ProfileDrawer': { ProfileDrawer: 'Drawer' },
     '../../features/home/HomeIcon': { HomeIcon: 'Icon' }, '../../features/home/home.styles': { palette: {} },
     '../../theme/ThemeProvider': { useAppTheme: () => ({ isDark: false, colors: {} }) },
   });
-  const props = { state: { index: 0, routes: ['Home', 'Orders', 'Favorites'].map((name) => ({ name, key: name })) },
+  const props = { state: { index: 0, routes: ['Home', 'Orders', 'Favorites', 'Account'].map((name) => ({ name, key: name })) },
     navigation: { dispatch: (action) => dispatched.push(action), emit: (event) => { events.push(event); return { defaultPrevented: cancel }; } } };
+  props.state.routes[0].params = { view: 'categories', preserved: 'value' };
   const tree = ShopTabBar(props); const tabs = nodes(tree).filter((n) => n.props.accessibilityRole === 'tab');
   tabs[1].props.onPress(); tabs[2].props.onPress(); cancel = true; tabs[0].props.onPress();
-  assert.deepEqual(dispatched, ['Orders', 'Favorites']); assert.equal(events.length, 3);
-  tabs[3].props.onPress(); assert.equal(opened, true);
+  assert.deepEqual(dispatched.map(action => action.payload.name), ['Orders', 'Favorites']); assert.equal(events.length, 3);
+  tabs[3].props.onPress(); assert.equal(opened, false);
+  cancel = false; tabs[3].props.onPress(); assert.equal(opened, true);
   const next = ShopTabBar(props); const drawer = nodes(next).find((n) => n.type === 'Drawer');
-  drawer.props.onOpenFavorites(); assert.equal(opened, false); assert.equal(dispatched.at(-1), 'Favorites');
+  drawer.props.onOpenFavorites(); assert.equal(opened, false); assert.equal(dispatched.at(-1).payload.name, 'Favorites');
+  tabs[0].props.onPress();
+  assert.deepEqual(dispatched.at(-1), TabActions.jumpTo('Home', { view: 'home', preserved: 'value' }));
+  assert.deepEqual(props.state.routes.map(route => route.key), ['Home', 'Orders', 'Favorites', 'Account']);
+  assert.equal(props.state.routes[0].params.view, 'categories', 'The incoming route state is not mutated');
+  const router = TabRouter({ initialRouteName: 'Home', backBehavior: 'history' });
+  const options = { routeNames: props.state.routes.map(route => route.name), routeParamList: {}, routeGetIdList: {} };
+  let state = router.getInitialState(options);
+  state = router.getStateForAction(state, TabActions.jumpTo('Orders'), options);
+  state = router.getStateForAction(state, TabActions.jumpTo('Home', props.state.routes[0].params), options);
+  const before = state;
+  state = router.getStateForAction(state, dispatched.at(-1), options);
+  assert.deepEqual(state.routes.map(route => route.key), before.routes.map(route => route.key));
+  assert.deepEqual(state.history, before.history);
+  assert.equal(state.routes[state.index].params.view, 'home');
+  state = router.getStateForAction(state, CommonActions.goBack(), options);
+  assert.equal(state.routes[state.index].name, 'Orders');
 });
 
 

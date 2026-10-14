@@ -1,5 +1,8 @@
 # JhelumKart Android closed-testing preparation
 
+Updated 13 October 2026. Current results, customer/seller/admin feature status and
+pending phases: [release review](../docs/release-readiness-2026-10-13.md).
+
 ## Build configuration
 
 - Display name: `JhelumKart`; package: `com.aaqibmir.zippcart`.
@@ -18,28 +21,26 @@
 - `expo-splash-screen` supplies the native launch screen before JavaScript loads.
 - No Sentry integration was added.
 
-## First build
+## Build the next AAB
 
 Run from the repository root in PowerShell, with Node 22.13+ installed:
 
 ```powershell
 cd frontend
 npx eas-cli@latest login
-npx eas-cli@latest init
 npx eas-cli@latest build --platform android --profile production
 ```
 
-`init` links this local app to your Expo account/project and writes the real EAS
-project ID. No account, project ID or signing credentials have been invented.
-Allow EAS to generate/manage an Android keystore when prompted for this first app.
-Keep access to that account and signing credentials for future updates.
+This app already has an EAS project ID. Keep that project, package name and signing
+identity for the existing Play app; do not initialize a replacement project or key.
+Keep access to the Expo account and existing signing credentials for future updates.
 After completion, download the AAB and upload it to the Play Console closed-testing track.
 No cloud build or Play submission has been performed by this preparation.
 
 ## API environment
 
 The confirmed production API URL is `https://api.zippcart.online/api/v1`; it is set
-in the EAS production profile and in the local Expo environment. Shopping requires
+in the EAS production profile. Local development may use a different API. Shopping requires
 a verified account and a reachable backend. The introduction,
 phone login and OTP screens use the purple/orange design. Retired device-only
 sessions are cleared on startup and cannot grant access to shopping.
@@ -61,12 +62,12 @@ The hostname check does not verify DNS, server health or certificate validity.
 | --- | --- |
 | Privacy and Terms | Separate pages are wired from login, with back navigation and support email. They are current-build drafts, not final approved policies. |
 | Public policy | No hosted public Privacy Policy URL exists in the project. Publish the finalized policy and enter its URL in Play Console. Confirm operator identity, retention/deletion periods and actual service-provider/sharing practices. |
-| Account deletion | Account creation exists but account/data deletion is not implemented. Provide an in-app deletion request path and external web resource before releasing account creation. |
+| Account deletion | In-app OTP-protected account deletion is implemented. Confirm the public external deletion resource and actual retention disclosures. Store owners/unresolved orders have explicit deletion blockers. |
 | Support / About | Drawer routes open Support and App info. Email is `miraaqib514@gmail.com`, phone is `+91 9596523404`, location is Kupwara, Jammu & Kashmir, India. App info reads name/version from app.json. Call/email launch handling exists; delivery and device behavior need a real-device check. |
 | Navigation | Auth and shop routes type-check; legal back navigation, drawer panels, checkout success reset and onboarding completion were inspected in source. Device/back-gesture testing remains. Privacy/Terms are currently accessible from login, not the signed-in drawer. |
-| Backend | Production hosting/HTTPS URL is pending. Real SMS uses the existing 2Factor integration with backend `OTP_DELIVERY=2factor` and `TWO_FACTOR_API_KEY`. Verify live delivery and account SMS balance before release. Console delivery is rejected in production. |
-| Secrets | Source-pattern scan found development JWT fallback strings in backend/src/config/env.js. Set strong, distinct production JWT secrets and remove/reject those defaults before deploying the backend. No live private keys or embedded database credentials were found by the scoped scan; this is not a full security audit. |
-| Dependencies | npm audit --omit=dev reported 18 moderate, 0 high, 0 critical findings, including transitive decode-uri-component and uuid advisories. Some fixes are unavailable; suggested forced Expo downgrades were not applied. Review compatible upstream fixes before release. |
+| Backend | HTTPS route probes and one real 2Factor OTP request passed on 13 October. Deploy this matching backend, especially the return-address schema fix. Console delivery remains blocked in production. SMS receipt does not prove app session restoration. |
+| Secrets | Startup rejects missing/placeholder JWT secrets; production requires distinct access/refresh secrets and a valid encryption key. Preserve deployed secrets. No production secret or backup review was performed here. |
+| Dependencies | Fresh online audit completed after approval. Compatible patches removed all backend findings and frontend critical findings. Frontend still has 28 affected-package findings (16 high, 12 moderate) from four root advisories; see [security follow-up](../docs/dependency-security-audit-2026-10-13.md). Review these before final release approval. |
 | Store setup | Complete Data safety, app access/testing instructions, target audience/content rating, listing screenshots and closed-test setup. |
 
 Google requires an in-app and publicly accessible privacy policy and, for apps
@@ -75,9 +76,11 @@ supporting account creation, account-deletion request options in-app and externa
 
 ## Verification
 
-Current auth update: TypeScript passed, all 27 frontend/OTP tests passed, and
-Android Hermes export passed (1,179 modules). Authored source files are below
-500 lines. Physical-device visual and interaction checks remain pending.
+13 October: TypeScript passed; frontend 293 tests and backend 216 tests passed.
+The default backend run skipped 20 opt-in integration tests; five suites were run
+separately with 60 passing database checks. Android Hermes export passed under
+Node 22.16.0 (1,567 modules); all 588 authored source files remain below 500 lines.
+Physical-device visual and interaction checks remain pending.
 
 Run from the repository root:
 

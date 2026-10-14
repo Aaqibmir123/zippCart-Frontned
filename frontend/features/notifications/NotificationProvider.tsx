@@ -13,9 +13,10 @@ type State = { status: Status; target: Target | null; retry: () => void; consume
 const Context = createContext<State>({ status: 'unsupported', target: null, retry: () => {}, consume: () => {} });
 const refreshKeys = ['orders', 'order', 'seller-orders', 'admin-shipping-all', 'admin-shipping-detail',
   'admin-analytics', 'shipping-operations', 'inventory-alerts', 'notification-inbox'];
+const registrationMaxAgeMs = 5 * 60_000;
 
 export function NotificationProvider({ children }: PropsWithChildren) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const client = useQueryClient();
   const [status, setStatus] = useState<Status>('pending');
   const [target, setTarget] = useState<Target | null>(null);
@@ -31,10 +32,14 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     let busy = false;
     let lastAttempt = 0;
     let registeredToken: string | null = null;
+    let registeredAt = -Infinity;
     let retryCount = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const abort = new AbortController();
     const subscriptions: { remove: () => void }[] = [];
+    let clearDelivered = () => {};
+    const endSession = () => { active = false; abort.abort(); clearDelivered(); };
+    session?.signal.addEventListener('abort', endSession, { once: true });
     const refresh = () => {
       if (active) refreshKeys.forEach((key) => { void client.invalidateQueries({ queryKey: [key] }).catch(() => {}); });
     };
@@ -45,12 +50,14 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       lastAttempt = Date.now();
       setStatus('pending');
       try {
-        const token = await registerForPushNotificationsAsync((recipientId) => active && recipientId === user!.id);
+        const token = await registerForPushNotificationsAsync((recipientId) => active && !session?.signal.aborted && recipientId === user!.id);
         if (!active) return;
         if (!token) { setStatus('denied'); return; }
-        if (token !== registeredToken) {
+        if (token !== registeredToken || Date.now() - registeredAt >= registrationMaxAgeMs) {
           await notificationApi.registerDevice({ token, platform: Platform.OS as 'android' | 'ios' }, abort.signal);
+          if (!active || session?.signal.aborted) return;
           registeredToken = token;
+          registeredAt = Date.now();
         }
         retryCount = 0;
         if (active) setStatus('enabled');
@@ -72,13 +79,17 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       }
       finally { busy = false; }
     }
-    retryRef.current = () => { retryCount = 0; void register(true); };
+    retryRef.current = () => { retryCount = 0; registeredAt = -Infinity; void register(true); };
     async function setup() {
       const Notifications = await import('expo-notifications');
       if (!active) return;
+      clearDelivered = () => {
+        void Notifications.dismissAllNotificationsAsync().catch(() => {});
+        void Notifications.clearLastNotificationResponseAsync().catch(() => {});
+      };
       function receive(response: NotificationResponse) {
         const data = response.notification.request.content.data;
-        if (!active || !data || data.recipientId !== user!.id || typeof data.orderId !== 'string' ||
+        if (!active || session?.signal.aborted || !data || data.recipientId !== user!.id || typeof data.orderId !== 'string' ||
           !/^[a-f\d]{24}$/i.test(data.orderId) || !['order-status', 'order-operations'].includes(String(data.type))) return;
         setTarget({ orderId: data.orderId, recipientId: user!.id, type: data.type as Target['type'] });
         refresh();
@@ -101,10 +112,12 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     }));
     return () => {
       active = false; abort.abort(); retryRef.current = () => {};
+      session?.signal.removeEventListener('abort', endSession);
+      clearDelivered();
       clearTimeout(retryTimer);
       subscriptions.forEach((subscription) => subscription.remove());
     };
-  }, [user?.id, client]);
+  }, [user?.id, session, client]);
   return <Context.Provider value={{ status, target: target?.recipientId === user?.id ? target : null, retry, consume }}>{children}</Context.Provider>;
 }
 

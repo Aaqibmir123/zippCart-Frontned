@@ -28,6 +28,7 @@ test('home bell invokes notification navigation, not the orders shortcut', () =>
     'react-native': native, 'expo-linear-gradient': { LinearGradient: 'Gradient' },
     '../../context/AuthContext': { useAuth: () => ({ user: {} }) },
     '../../components/account/ProfileAvatar': { ProfileAvatar: 'Avatar' },
+    '../../components/brand/BrandWordmark': { BrandWordmark: 'BrandWordmark' },
     '../../services/cart/cart-queries': { useCart: () => ({}) }, './HomeIcon': { HomeIcon: 'Icon' },
     './HomeBanner': { HomeBanner: 'Banner' }, './home.styles': { h: {}, palette: {} }, '../../assets/home/shopping-hero.png': 1,
   });

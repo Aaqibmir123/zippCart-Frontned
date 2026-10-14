@@ -5,9 +5,10 @@ import {
   clearRetiredSessions, clearSessionMayExist, getSessionRestoreMode, markSessionMayExist,
 } from '../services/auth/session-storage';
 import { startupRestoreOutcome } from '../services/auth/auth-startup';
-import { classifySessionFailure } from '../services/api/api-error';
+import { classifySessionFailure, createApiError } from '../services/api/api-error';
 import { registerAuthSessionHandler, setAuthRestoreInProgress } from '../services/api/client';
-import { getSessionScope, setSessionUser, type SessionScope } from '../services/auth/session-scope';
+import { assertCurrentSession, getSessionScope, setSessionUser, type SessionScope } from '../services/auth/session-scope';
+import { sameAuthenticatedUser } from '../services/auth/authenticated-user';
 
 type AuthContextValue = {
   user: AuthenticatedUser | null;
@@ -29,9 +30,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const currentId = useRef<string | undefined>(undefined);
   const userRef = useRef<AuthenticatedUser | null>(null);
+  const modeOverride = useRef<AuthenticatedUser['mode']>(undefined);
   const client = useQueryClient();
   const setUser = useCallback((next: AuthenticatedUser | null, showWelcome = false) => {
     const previousId = currentId.current;
+    if (!next || next.id !== previousId || showWelcome) modeOverride.current = undefined;
+    else if (next.mode !== userRef.current?.mode) modeOverride.current = next.mode;
     const previousSession = getSessionScope();
     const nextSession = setSessionUser(next?.id ?? null, !!next && showWelcome);
     if (previousSession !== nextSession) client.clear();
@@ -54,11 +58,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     async function restore() {
+      const originalSession = getSessionScope();
       console.info('[auth-debug] app startup auth restore started');
       setAuthRestoreInProgress(true);
       try {
         const restoreMode = await getSessionRestoreMode();
         await clearRetiredSessions().catch(() => undefined);
+        assertCurrentSession(originalSession);
         if (restoreMode === 'none') {
           if (active) {
             setUser(null);
@@ -69,15 +75,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         const response = await authApi.refresh();
+        assertCurrentSession(originalSession);
         if (active) {
           await markSessionMayExist().catch(() => console.warn('[auth] session_marker_write_error'));
+          assertCurrentSession(originalSession);
+          if (!active) return;
           console.info('[auth-debug] startup auth restore succeeded');
           setSessionRestoreIssue(false);
-          setUser(response.user);
+          setUser(modeOverride.current ? { ...response.user, mode: modeOverride.current } : response.user);
           console.info('[auth] session_refresh_success');
         }
       } catch (error) {
-        if (!active) return;
+        if (!active || originalSession !== getSessionScope()) return;
         const failure = classifySessionFailure(error);
         const outcome = startupRestoreOutcome(false, error);
         const classification = failure.reason === 'refresh_invalid' ? 'invalid'
@@ -90,6 +99,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
         if (outcome === 'login') {
           await clearSessionMayExist().catch(() => console.warn('[auth] session_marker_clear_error'));
+          if (!active || originalSession !== getSessionScope()) return;
           setUser(null);
           setSessionRestoreIssue(false);
         } else {
@@ -103,7 +113,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     const unregister = registerAuthSessionHandler({
       hasSession: () => userRef.current !== null,
-      refresh: () => authApi.refresh(),
+      refresh: async () => {
+        const originalSession = getSessionScope();
+        const response = await authApi.refresh();
+        assertCurrentSession(originalSession);
+        if (!active) throw createApiError('Request cancelled.', { kind: 'cancelled' });
+        if (!originalSession.userId || response.user?.id !== originalSession.userId
+          || userRef.current?.id !== originalSession.userId) {
+          throw createApiError('The server returned an invalid session response. Please try again.', { kind: 'invalid_response' });
+        }
+        // Refresh updates account data, not login identity, caches, or the welcome flow.
+        const next = modeOverride.current ? { ...response.user, mode: modeOverride.current } : response.user;
+        if (!sameAuthenticatedUser(userRef.current, next)) {
+          userRef.current = next;
+          updateUser(next);
+        }
+        setSessionRestoreIssue(false);
+        return response;
+      },
       onInvalidSession: () => {
         void clearSessionMayExist().catch(() => console.warn('[auth] session_marker_clear_error'));
         setSessionRestoreIssue(false);

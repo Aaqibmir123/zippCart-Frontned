@@ -4,7 +4,8 @@ import { Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { uploadPreparedImage } from '../../services/media/image-upload';
+import { getSessionScope, assertUserSession } from '../../services/auth/session-scope';
 import { reviewApi } from './review-api';
 import { reviewStyles as s } from './review.styles';
 export function ReviewForm({ orderId, itemIndex, name, onClose }: { orderId: string; itemIndex: number; name: string; onClose: () => void }) {
@@ -18,23 +19,15 @@ export function ReviewForm({ orderId, itemIndex, name, onClose }: { orderId: str
   const save = useMutation({ mutationFn: () => reviewApi.create({ orderId, itemIndex, rating, title, comment, images }),
     onSuccess: async () => { await client.invalidateQueries({ queryKey: ['reviews'] }); onClose(); } });
   async function choosePhoto() {
+    const session = getSessionScope();
     if (photoBusy || save.isPending || images.length >= 3) return;
     setPhotoBusy(true); setError('');
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       if (result.canceled) return;
-      const asset = result.assets[0];
-      if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) throw new Error('Choose an image smaller than 10 MB.');
-      const context = ImageManipulator.manipulate(asset.uri);
-      try {
-        context.resize(asset.width >= asset.height ? { width: Math.min(1200, asset.width) } : { height: Math.min(1200, asset.height) });
-        const rendered = await context.renderAsync();
-        try {
-          const image = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
-          if (!image.base64 || image.base64.length > 680000) throw new Error('Photo is too large. Choose a smaller photo.');
-          setImages((current) => [...current, `data:image/jpeg;base64,${image.base64}`].slice(0, 3));
-        } finally { rendered.release(); }
-      } finally { context.release(); }
+      const uploaded = await uploadPreparedImage(result.assets[0], session, 1200, undefined, async data => data);
+      assertUserSession(session);
+      setImages((current) => [...current, uploaded].slice(0, 3));
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not prepare photo.'); }
     finally { setPhotoBusy(false); }
   }

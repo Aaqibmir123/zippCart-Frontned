@@ -20,16 +20,11 @@ export function SellerDrawer({
   onNavigate: (tab: SellerTab) => void;
   onCustomer: () => void;
 }) {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const logout = useLogout();
   async function signOut() {
-    try {
-      await logout.mutateAsync();
-      onClose();
-      setUser(null);
-    } catch {
-      /* Mutation exposes a retryable error below. */
-    }
+    onClose();
+    await logout.mutateAsync().catch(() => undefined);
   }
   return (
     <Modal

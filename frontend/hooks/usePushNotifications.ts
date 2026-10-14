@@ -11,6 +11,7 @@ export function usePushNotifications(userId: string | undefined, navigation: Nat
   useEffect(() => {
     if (!userId || !target) return;
     if (target.type === 'order-operations') {
+      consume();
       if (user?.roles?.includes('seller') && !user.roles.includes('admin') && user.isActive && user.storeStatus === 'approved') {
         setUser({ ...user, mode: 'seller' });
         void authApi.switchMode('seller').catch(() => {});

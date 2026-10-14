@@ -1,6 +1,6 @@
 import { AppLoader } from '../../../components/AppLoader';
 import { useQuery } from "@tanstack/react-query";
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from "../../../context/AuthContext";
 import { storeApi, storeQueryKey } from "./store-api";
@@ -8,20 +8,31 @@ import { StoreRegistrationScreen } from "./StoreRegistrationScreen";
 import { StoreIcon } from "./StoreIcon";
 import { palette, s } from "./registration.styles";
 
-export function StoreRegistrationEntry({ onClose }: { onClose: () => void }) {
+export function StoreRegistrationEntry({ onClose, onBackChange }: {
+  onClose: () => void; onBackChange?: (handler: (() => void) | null) => void;
+}) {
   const { user } = useAuth();
   const [editing, setEditing] = useState(false);
+  const childBack = useRef<(() => void) | null>(null);
+  const registerBack = useCallback((handler: (() => void) | null) => { childBack.current = handler; }, []);
+  useEffect(() => {
+    onBackChange?.(() => {
+      if (childBack.current) childBack.current();
+      else if (editing) setEditing(false);
+      else onClose();
+    });
+    return () => onBackChange?.(null);
+  }, [editing, onBackChange, onClose]);
   const query = useQuery({
     queryKey: storeQueryKey(user?.id),
     queryFn: storeApi.get,
     enabled: !!user,
-    retry: 1,
   });
   if (user && query.isSuccess && !query.data.store) {
-    return <StoreRegistrationScreen onClose={onClose} />;
+    return <StoreRegistrationScreen onClose={onClose} onBackChange={registerBack} />;
   }
   const store = query.data?.store;
-  if (editing) return <StoreEditor userId={user?.id} onClose={() => setEditing(false)} />;
+  if (editing) return <StoreEditor userId={user?.id} onClose={() => setEditing(false)} onBackChange={registerBack} />;
   return (
     <View style={s.page}>
       <View style={s.header}>
@@ -111,10 +122,12 @@ export function StoreRegistrationEntry({ onClose }: { onClose: () => void }) {
   );
 }
 
-function StoreEditor({ userId, onClose }: { userId?: string; onClose: () => void }) {
+function StoreEditor({ userId, onClose, onBackChange }: {
+  userId?: string; onClose: () => void; onBackChange: (handler: (() => void) | null) => void;
+}) {
   const details = useQuery({ queryKey: ['store-edit', userId], queryFn: storeApi.details,
     enabled: !!userId, gcTime: 0, retry: false, refetchOnWindowFocus: false });
-  if (details.isSuccess) return <StoreRegistrationScreen existing={details.data.store} onClose={onClose} onSaved={onClose} />;
+  if (details.isSuccess) return <StoreRegistrationScreen existing={details.data.store} onClose={onClose} onSaved={onClose} onBackChange={onBackChange} />;
   return <View style={s.page}><View style={s.card}>
     {details.isError ? <><Text accessibilityRole="alert" style={s.error}>{details.error.message}</Text>
       <Pressable accessibilityRole="button" style={s.secondary} disabled={details.isFetching} onPress={() => void details.refetch()}>

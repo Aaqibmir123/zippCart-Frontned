@@ -1,4 +1,6 @@
 import { apiRequest } from "./client";
+import { withCredentialLock } from '../auth/credential-lock';
+import { assertCurrentSession, getSessionScope } from '../auth/session-scope';
 
 export type AuthenticatedUser = {
   id: string;
@@ -26,12 +28,25 @@ export const authApi = {
   switchMode: (mode: "customer" | "seller") =>
     apiRequest<{ user: AuthenticatedUser }>("/auth/mode", { body: { mode } }),
   requestOtp: (phone: string) =>
-    apiRequest<OtpDelivery>("/auth/otp/request", { body: { phone } }),
-  verifyOtp: (phone: string, code: string) =>
-    apiRequest<{ message: string; user: AuthenticatedUser }>(
-      "/auth/otp/verify",
-      { body: { phone, code } },
-    ),
+    apiRequest<OtpDelivery>("/auth/otp/request", { body: { phone }, timeoutMs: 15000 }),
+  verifyOtp: async (phone: string, code: string) => {
+    const session = getSessionScope();
+    return withCredentialLock(async () => {
+      assertCurrentSession(session);
+      const { clearPendingLogout, hasPendingLogout } = await import('../auth/session-storage');
+      if (await hasPendingLogout()) {
+        assertCurrentSession(session);
+        await authApi.logout();
+        assertCurrentSession(session);
+        await clearPendingLogout();
+      }
+      assertCurrentSession(session);
+      return apiRequest<{ message: string; user: AuthenticatedUser }>(
+        "/auth/otp/verify",
+        { body: { phone, code } },
+      );
+    });
+  },
   refresh: () =>
     apiRequest<{ message: string; user: AuthenticatedUser }>("/auth/refresh", { skipAuthRefresh: true }),
   logout: () => apiRequest<void>("/auth/logout", { skipAuthRefresh: true }),

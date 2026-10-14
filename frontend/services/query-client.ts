@@ -8,7 +8,8 @@ export function createQueryClient() {
       refetchOnWindowFocus: true,
       refetchIntervalInBackground: false,
       retry: (count, error) => count < 1 && !(isApiError(error)
-        && (error.kind === 'cancelled' || (error.status !== undefined && error.status < 500))),
+        && (['cancelled', 'invalid_response', 'invalid_request', 'configuration'].includes(error.kind ?? '')
+          || (error.status !== undefined && error.status < 500))),
     },
     mutations: { retry: false },
   } });

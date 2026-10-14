@@ -4,11 +4,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from "../../context/AuthContext";
 import { authApi } from "../../services/api/auth-api";
+import { isCurrentSession } from '../../services/auth/session-scope';
 
 export function AccountModeSwitch() {
-  const { user, setUser } = useAuth();
+  const { user, session, setUser } = useAuth();
   const query = useQuery({
-    queryKey: ["account-access", user?.id],
+    queryKey: ["account-access", user?.id, session?.generation],
     queryFn: authApi.me,
     enabled: !!user,
     staleTime: 0,
@@ -17,13 +18,14 @@ export function AccountModeSwitch() {
     if (
       query.isFetchedAfterMount &&
       query.data &&
+      isCurrentSession(session) &&
       query.data.user.id === user?.id
     )
-      setUser(query.data.user);
-  }, [query.data, query.isFetchedAfterMount, setUser, user?.id]);
+      setUser({ ...query.data.user, mode: user?.mode });
+  }, [query.data, query.isFetchedAfterMount, setUser, user?.id, session]);
   const mutation = useMutation({
     mutationFn: () => authApi.switchMode("seller"),
-    onSuccess: (result) => setUser(result.user),
+    onSuccess: (result) => { if (isCurrentSession(session)) setUser(result.user); },
   });
   if (
     user?.storeStatus !== "approved" ||

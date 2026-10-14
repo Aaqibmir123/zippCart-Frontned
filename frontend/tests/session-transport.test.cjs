@@ -10,6 +10,37 @@ function deferred() {
 }
 const unauthorized = () => ({ ok: false, status: 401, headers: new Headers(), json: async () => ({ message: 'Expired' }) });
 const success = (data) => ({ ok: true, status: 200, json: async () => data });
+
+test('a delayed old 401 reuses the completed refresh instead of rotating again', async (t) => {
+  const { client } = setup(t);
+  const delayed = deferred(); let calls = 0, refreshes = 0;
+  client.registerAuthSessionHandler({ hasSession: () => true, refresh: async () => { refreshes++; },
+    onInvalidSession: () => assert.fail('unexpected logout'), onRecoverableRefreshFailure: () => {} });
+  global.fetch = async () => ++calls === 1 ? delayed.promise : calls === 2 ? unauthorized() : success({ ok: true });
+  const slow = client.apiRequest('/slow');
+  await client.apiRequest('/fast');
+  delayed.resolve(unauthorized());
+  assert.deepEqual(await slow, { ok: true });
+  assert.equal(refreshes, 1);
+  assert.equal(calls, 4);
+});
+
+test('direct refreshes share a request and logout waits for its cookie response to settle', async (t) => {
+  const { client, sessions } = setup(t);
+  const pending = deferred(); const paths = [];
+  global.fetch = async (url) => { paths.push(new URL(url).pathname); return paths.length === 1 ? pending.promise : success({}); };
+  const first = client.apiRequest('/auth/refresh');
+  const second = client.apiRequest('/auth/refresh');
+  assert.equal(first, second);
+  const settled = first.catch((e) => e);
+  await tick(); sessions.setSessionUser(null);
+  const logout = client.apiRequest('/auth/logout');
+  await tick(); assert.equal(paths.length, 1);
+  pending.resolve(success({ user: 'A' }));
+  assert.equal((await settled).kind, 'cancelled');
+  await logout;
+  assert.deepEqual(paths, ['/api/v1/auth/refresh', '/api/v1/auth/logout']);
+});
 function setup(t) {
   const originalUrl = process.env.EXPO_PUBLIC_API_URL;
   const originalFetch = global.fetch;

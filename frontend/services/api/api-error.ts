@@ -1,4 +1,5 @@
-export type ApiErrorKind = 'network' | 'timeout' | 'server' | 'unauthorized' | 'http' | 'cancelled';
+export type ApiErrorKind = 'network' | 'timeout' | 'server' | 'unauthorized' | 'http' | 'cancelled'
+  | 'invalid_response' | 'invalid_request' | 'configuration';
 export type ApiError = Error & {
   isApiError: true;
   kind?: ApiErrorKind;
@@ -39,7 +40,8 @@ export function isConfirmedSessionFailure(error: unknown): error is ApiError {
 export type SessionFailure = {
   requiresLogin: boolean;
   reason: 'refresh_invalid' | 'refresh_expired' | 'refresh_revoked'
-    | 'refresh_network_error' | 'refresh_timeout' | 'refresh_server_error';
+    | 'refresh_network_error' | 'refresh_timeout' | 'refresh_server_error'
+    | 'refresh_cancelled' | 'refresh_response_error' | 'refresh_http_error' | 'refresh_client_error';
   kind?: ApiErrorKind;
 };
 
@@ -53,7 +55,11 @@ export function classifySessionFailure(error: unknown): SessionFailure {
   return {
     requiresLogin: false,
     reason: kind === 'timeout' ? 'refresh_timeout'
-      : kind === 'server' ? 'refresh_server_error' : 'refresh_network_error',
+      : kind === 'server' ? 'refresh_server_error'
+        : kind === 'network' ? 'refresh_network_error'
+          : kind === 'cancelled' ? 'refresh_cancelled'
+            : kind === 'invalid_response' ? 'refresh_response_error'
+              : kind === 'http' ? 'refresh_http_error' : 'refresh_client_error',
     kind,
   };
 }

@@ -1,10 +1,12 @@
 import { AppLoader } from '../../components/AppLoader';
+import { useCallback } from 'react';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlatList, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TopFeedbackToast } from '../../components/TopFeedbackToast';
 import { HomeProductCard } from '../home/HomeProductCard';
+import { WishlistStatus } from '../home/WishlistStatus';
 import { useHomeCatalog } from '../home/useHomeCatalog';
 import { ShopStackParamList } from '../../navigation/user/shop-routes';
 import { h, palette } from '../home/home.styles';
@@ -15,7 +17,7 @@ type Route = RouteProp<ShopStackParamList, 'ProductListing'>;
 export function ProductListingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ShopStackParamList>>();
   const route = useRoute<Route>();
-  const openProduct = (productId: string) => navigation.navigate('ProductDetails', { productId });
+  const openProduct = useCallback((productId: string) => navigation.navigate('ProductDetails', { productId }), [navigation]);
   const catalog = useHomeCatalog(openProduct, route.params.category ?? 'All');
   const theme = useAppTheme();
   const { query, products } = catalog;
@@ -41,6 +43,8 @@ export function ProductListingScreen() {
         {query.isError && !query.isFetchNextPageError && products.length > 0 && <View style={h.state}>
           <Text style={[h.hint, { color: theme.colors.muted }]}>Could not refresh products.</Text>{retry}
         </View>}
+        <WishlistStatus pending={catalog.favorites.isPending} fetching={catalog.favorites.isFetching}
+          error={catalog.favorites.isError} onRetry={() => void catalog.favorites.refetch()} />
       </View>}
       ListEmptyComponent={<View style={h.state}>
         {query.isPending ? <AppLoader accessibilityLabel="Loading products" color={palette.pink} /> :
@@ -49,9 +53,9 @@ export function ProductListingScreen() {
       </View>}
       renderItem={({ item }) => <HomeProductCard product={item} width={cardWidth}
         favorite={catalog.favoriteIds.has(item.id)}
-        favoritePending={!catalog.favorites.isSuccess || catalog.pendingFavoriteIds.has(item.id)}
-        onOpen={() => openProduct(item.id)} onFavorite={() => void catalog.toggleFavorite(item.id)}
-        onAdd={() => void catalog.addToCart(item.id)} />}
+        favoritePending={catalog.pendingFavoriteIds.has(item.id)} favoriteDisabled={!catalog.favorites.isSuccess}
+        onOpen={openProduct} onFavorite={catalog.toggleFavorite}
+        onAdd={catalog.addToCart} />}
       ListFooterComponent={query.hasNextPage ? <Pressable accessibilityRole="button"
         style={[h.state, query.isFetching && h.disabled]} disabled={query.isFetching}
         onPress={() => { if (!query.isFetching) void query.fetchNextPage({ cancelRefetch: false }); }}>
